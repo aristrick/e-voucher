@@ -1,69 +1,63 @@
 'use client';
-import { useEffect, useState } from 'react';
-export default function Admin() {
-  const [d, setD] = useState(null), [csv, setCsv] = useState(''), [msg, setMsg] = useState('');
-  const [sent, setSent] = useState({}), [pn, setPn] = useState(''), [ps, setPs] = useState(1), [cn, setCn] = useState('');
-  const [su, setSu] = useState(''), [sm, setSm] = useState(''), [sp, setSp] = useState(''), [rn, setRn] = useState('');
-  useEffect(() => { try { setSent(JSON.parse(localStorage.getItem('sent') || '{}')); } catch {} load(); }, []);
-  const call = async (body) => {
-    const r = await fetch('/api/admin', { method: 'POST', body: JSON.stringify(body) });
-    if (r.status === 401) { location.href = '/login'; return {}; }
-    const j = await r.json().catch(() => ({ error: 'Server error ' + r.status }));
-    setMsg(r.ok ? '' : j.error); return j;
+import { useEffect, useRef, useState } from 'react';
+export default function Staff() {
+  const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
+  const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false);
+  const busy = useRef(false), ref = useRef({});
+  ref.current = { mode, coupon };
+  const call = (body) => fetch('/api/staff', { method: 'POST', body: JSON.stringify(body) });
+  const act = async (c) => {
+    if (busy.current || !c) return;
+    busy.current = true;
+    try {
+      const r = await call({ action: ref.current.mode, code: c, coupon_id: Number(ref.current.coupon), booth: 'booth' });
+      if (r.status === 401) { location.href = '/login'; return; }
+      const d = await r.json().catch(() => ({ ok: false, msg: 'Server bermasalah (' + r.status + '), scan lagi' }));
+      setRes(d); navigator.vibrate?.(d.ok ? 80 : [80, 60, 80]);
+    } catch { setRes({ ok: false, msg: 'Koneksi bermasalah, scan lagi' }); }
+    setTimeout(() => { busy.current = false; }, 2000);
   };
-  const load = async () => {
-    const j = await call({ action: 'overview' });
-    if (j.employees) setD(j); else if (!j.error) setMsg('Data kosong, cek tabel dan key Supabase');
-  };
-  const imp = async () => {
-    const rows = csv.split('\n').map((l) => l.split(/[,;\t]/).map((s) => s.trim())).filter((r) => r[0] && r[0].toLowerCase() !== 'nik')
-      .map(([nik, nama, cabang, hp]) => ({ nik, nama, cabang, hp }));
-    const j = await call({ action: 'import', rows }); if (!j.error) setMsg(rows.length + ' karyawan diimpor'); load();
-  };
-  const wa = (e) => `https://wa.me/${(e.hp || '').replace(/\D/g, '').replace(/^0/, '62')}?text=${encodeURIComponent(`Halo ${e.nama}, tiket gathering kamu ada di ${location.origin}. Aktivasi akun dengan NIK ${e.nik} dan 4 digit terakhir nomor HP kamu.`)}`;
-  const mark = (nik) => { const n = { ...sent, [nik]: 1 }; setSent(n); localStorage.setItem('sent', JSON.stringify(n)); };
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      while (alive) {
+        try {
+          const r = await call({ action: 'coupons' });
+          if (r.status === 401) { location.href = '/login'; return; }
+          if (r.ok) { const d = await r.json(); setCoupons(d); setCoupon(d[0]?.id || ''); setOn(true); return; }
+        } catch {}
+        await new Promise((x) => setTimeout(x, 3000));
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
+  useEffect(() => {
+    if (!on) return;
+    let s;
+    (async () => {
+      const { Html5Qrcode } = await import('html5-qrcode');
+      s = new Html5Qrcode('cam');
+      s.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, (t) => act(t)).catch(() => {});
+    })();
+    return () => { try { s?.isScanning && s.stop(); } catch {} };
+  }, [on]);
   const out = async () => { await fetch('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }); location.href = '/login'; };
-  if (!d) return <div className="wrap">Memuat...{msg && <p>{msg}</p>}</div>;
-  const hadir = d.employees.filter((e) => e.checked_in_at).length;
+  if (!on) return <div className="wrap">Memuat...</div>;
   return (
-    <div className="wrap wide">
-      <div className="row"><h1>Dashboard</h1>
-        <span className="row"><a className="btn b" href="/stage">Layar undian</a><a className="btn b" href="/staff">Scan</a><button className="btn y" onClick={out}>Keluar</button></span></div>
-      {msg && <div className="card yellow">{msg}</div>}
-      <div className="grid" style={{ marginBottom: 16 }}>
-        <div className="card purple"><h2>{d.employees.length}</h2>Karyawan</div>
-        <div className="card ok"><h2>{hadir}</h2>Hadir</div>
-        {d.coupons.map((c) => <div className="card" key={c.id}><h2>{d.redemptions.filter((r) => r.coupon_type_id === c.id).length}</h2>{c.nama} ditukar</div>)}
-        <div className="card yellow"><h2>{d.draws.filter((x) => x.status !== 'forfeited').length}</h2>Pemenang</div>
+    <div className="wrap">
+      <div className="row" style={{ marginBottom: 12 }}>
+        <button className={'btn b' + (mode === 'checkin' ? ' sel' : '')} onClick={() => setMode('checkin')}>Check-in</button>
+        <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
+        <button className="btn y" onClick={out}>Keluar</button>
       </div>
-      <div className="card"><h2>Import karyawan</h2>
-        <p>Satu baris satu orang: nik, nama, cabang, no hp</p>
-        <textarea rows={5} value={csv} onChange={(e) => setCsv(e.target.value)} placeholder={'20190342, Budi Santoso, Jakarta Barat, 081234567890'} />
-        <button className="btn" onClick={imp}>Import</button></div>
-      <div className="grid">
-        <div className="card"><h2>Panitia</h2>
-          {d.staff.map((s) => <div className="row" key={s.id} style={{ margin: '6px 0' }}><span>{s.username}{s.nama ? ` (${s.nama})` : ''}</span>
-            <button className="btn y" style={{ padding: '2px 8px', boxShadow: 'none' }} onClick={async () => { await call({ action: 'toggleStaff', id: s.id, aktif: !s.aktif }); load(); }}>{s.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button></div>)}
-          <input placeholder="Username" autoCapitalize="none" value={su} onChange={(e) => setSu(e.target.value)} />
-          <input placeholder="Nama" value={sm} onChange={(e) => setSm(e.target.value)} />
-          <input type="password" placeholder="Password (min. 6)" value={sp} onChange={(e) => setSp(e.target.value)} />
-          <button className="btn y" onClick={async () => { const j = await call({ action: 'addStaff', username: su, nama: sm, password: sp }); if (!j.error) { setSu(''); setSm(''); setSp(''); } load(); }}>Tambah panitia</button></div>
-        <div className="card"><h2>Reset password peserta</h2>
-          <input placeholder="NIK peserta" value={rn} onChange={(e) => setRn(e.target.value)} />
-          <button className="btn y" onClick={async () => { const j = await call({ action: 'resetPeserta', nik: rn }); if (!j.error) { setMsg('Password direset. Peserta bisa aktivasi ulang.'); setRn(''); } }}>Reset</button></div>
-        <div className="card"><h2>Kupon</h2>{d.coupons.map((c) => <div key={c.id}>{c.nama}</div>)}
-          <input placeholder="Nama kupon baru" value={cn} onChange={(e) => setCn(e.target.value)} />
-          <button className="btn y" onClick={async () => { await call({ action: 'addCoupon', nama: cn }); setCn(''); load(); }}>Tambah</button></div>
-        <div className="card"><h2>Hadiah</h2>{d.prizes.map((p) => <div key={p.id}>{p.nama} (stok {p.stok})</div>)}
-          <input placeholder="Nama hadiah" value={pn} onChange={(e) => setPn(e.target.value)} />
-          <input type="number" min="1" value={ps} onChange={(e) => setPs(e.target.value)} />
-          <button className="btn y" onClick={async () => { await call({ action: 'addPrize', nama: pn, stok: ps }); setPn(''); load(); }}>Tambah</button></div>
+      {mode === 'redeem' && <select value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>}
+      <div id="cam" />
+      {res && <div className={'card big ' + (res.ok ? 'ok' : 'bad')} style={{ marginTop: 16, fontSize: 28 }}>
+        {res.nama && <div style={{ fontSize: 36 }}>{res.nama}</div>}{res.nik && <div>NIK {res.nik}</div>}<div>{res.msg}</div></div>}
+      <div className="card" style={{ marginTop: 16 }}>
+        <input placeholder="Kamera gagal? Ketik NIK atau kode tiket" value={code} onChange={(e) => setCode(e.target.value)} />
+        <button className="btn y" onClick={() => { act(code); setCode(''); }}>Proses manual</button>
       </div>
-      <div className="card"><div className="row"><h2>Kirim info akun (WhatsApp)</h2><button className="btn b" onClick={load}>Refresh</button></div>
-        <table><tbody>{d.employees.map((e) => (
-          <tr key={e.nik}><td>{e.nama}</td><td>{e.nik}</td><td>{e.checked_in_at ? 'Hadir' : '-'}</td>
-            <td>{e.hp ? <a className="btn" style={{ padding: '2px 8px', boxShadow: 'none', background: sent[e.nik] ? '#ddd' : undefined }} target="_blank" rel="noreferrer" href={wa(e)} onClick={() => mark(e.nik)}>{sent[e.nik] ? 'Terkirim' : 'Kirim'}</a> : 'HP kosong'}</td></tr>
-        ))}</tbody></table></div>
     </div>
   );
 }

@@ -1,26 +1,27 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 export default function Staff() {
-  const [pin, setPin] = useState(''), [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
+  const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
   const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false);
   const busy = useRef(false), ref = useRef({});
-  ref.current = { pin, mode, coupon };
-  useEffect(() => { setPin(localStorage.getItem('pin') || ''); }, []);
-  const call = (body) => fetch('/api/staff', { method: 'POST', headers: { 'x-pin': ref.current.pin }, body: JSON.stringify(body) });
+  ref.current = { mode, coupon };
+  const call = (body) => fetch('/api/staff', { method: 'POST', body: JSON.stringify(body) });
   const act = async (c) => {
     if (busy.current || !c) return;
     busy.current = true;
     const r = await call({ action: ref.current.mode, code: c, coupon_id: Number(ref.current.coupon), booth: 'booth' });
-    const d = r.status === 401 ? { ok: false, msg: 'PIN salah' } : await r.json();
+    if (r.status === 401) { location.href = '/login'; return; }
+    const d = await r.json();
     setRes(d); navigator.vibrate?.(d.ok ? 80 : [80, 60, 80]);
     setTimeout(() => { busy.current = false; }, 2000);
   };
-  const login = async () => {
-    localStorage.setItem('pin', pin);
-    const r = await call({ action: 'coupons' });
-    if (!r.ok) return setRes({ ok: false, msg: 'PIN salah' });
-    const d = await r.json(); setCoupons(d); setCoupon(d[0]?.id || ''); setRes(null); setOn(true);
-  };
+  useEffect(() => {
+    (async () => {
+      const r = await call({ action: 'coupons' });
+      if (!r.ok) { location.href = '/login'; return; }
+      const d = await r.json(); setCoupons(d); setCoupon(d[0]?.id || ''); setOn(true);
+    })();
+  }, []);
   useEffect(() => {
     if (!on) return;
     let s;
@@ -31,16 +32,14 @@ export default function Staff() {
     })();
     return () => { try { s?.isScanning && s.stop(); } catch {} };
   }, [on]);
-  if (!on) return (
-    <div className="wrap"><div className="card"><h1>Panitia</h1>
-      <input type="password" placeholder="PIN panitia" value={pin} onChange={(e) => setPin(e.target.value)} />
-      {res && <p>{res.msg}</p>}<button className="btn" onClick={login}>Masuk</button></div></div>
-  );
+  const out = async () => { await fetch('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }); location.href = '/login'; };
+  if (!on) return <div className="wrap">Memuat...</div>;
   return (
     <div className="wrap">
       <div className="row" style={{ marginBottom: 12 }}>
         <button className={'btn b' + (mode === 'checkin' ? ' sel' : '')} onClick={() => setMode('checkin')}>Check-in</button>
         <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
+        <button className="btn y" onClick={out}>Keluar</button>
       </div>
       {mode === 'redeem' && <select value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>}
       <div id="cam" />

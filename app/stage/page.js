@@ -1,17 +1,19 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 export default function Stage() {
-  const [pin, setPin] = useState(''), [d, setD] = useState(null), [prize, setPrize] = useState(''), [show, setShow] = useState(null);
+  const [d, setD] = useState(null), [prize, setPrize] = useState(''), [show, setShow] = useState(null);
   const [final, setFinal] = useState(false), [err, setErr] = useState(''), [run, setRun] = useState(false);
   const call = async (b) => {
-    const r = await fetch('/api/admin', { method: 'POST', headers: { 'x-pin': pin }, body: JSON.stringify(b) });
+    const r = await fetch('/api/admin', { method: 'POST', body: JSON.stringify(b) });
+    if (r.status === 401) { location.href = '/login'; return { ok: false, error: 'Login sebagai admin' }; }
     return { ok: r.ok, ...(await r.json()) };
   };
   const load = async () => {
     const j = await call({ action: 'overview' });
-    if (!j.ok) return setErr('PIN admin salah');
-    setErr(''); setD(j); setPrize((p) => p || j.prizes[0]?.id || '');
+    if (!j.ok) return;
+    setD(j); setPrize((p) => p || j.prizes[0]?.id || '');
   };
+  useEffect(() => { load(); }, []);
   const spin = async () => {
     if (run) return;
     setErr(''); setFinal(false); setRun(true);
@@ -27,11 +29,7 @@ export default function Stage() {
     tick();
   };
   const forfeit = async (id) => { await call({ action: 'forfeit', draw_id: id }); setShow(null); setFinal(false); load(); };
-  if (!d) return (
-    <div className="wrap"><div className="card"><h1>Layar undian</h1>
-      <input type="password" placeholder="PIN admin" value={pin} onChange={(e) => setPin(e.target.value)} />
-      {err && <p>{err}</p>}<button className="btn" onClick={load}>Buka</button></div></div>
-  );
+  if (!d) return <div className="wrap">Memuat...</div>;
   return (
     <div className="wrap wide">
       <div className="row" style={{ marginBottom: 16 }}>

@@ -3,32 +3,45 @@ import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 const cached = () => { try { return JSON.parse(localStorage.getItem('tiket') || 'null'); } catch { return null; } };
 export default function Home() {
-  const [t, setT] = useState(null), [nik, setNik] = useState(''), [pin, setPin] = useState(''), [err, setErr] = useState('');
-  const load = async (body) => {
+  const [t, setT] = useState(null), [mode, setMode] = useState('login'), [f, setF] = useState({ nik: '', hp: '', pw: '' }), [err, setErr] = useState(''), [ready, setReady] = useState(false);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  const load = async () => {
     try {
-      const r = await fetch('/api/ticket', { method: 'POST', body: JSON.stringify(body) });
+      const r = await fetch('/api/ticket', { method: 'POST' });
+      if (r.status === 401) { setT(null); localStorage.removeItem('tiket'); return; }
       const d = await r.json().catch(() => null);
       if (!d) return setErr(`Server bermasalah (kode ${r.status}). Hubungi panitia.`);
-      if (!r.ok) return setErr(d.error);
       setErr(''); setT(d); localStorage.setItem('tiket', JSON.stringify(d));
     } catch { setErr('Tidak ada sinyal. Tiket tersimpan tetap bisa dipakai.'); }
   };
   useEffect(() => {
-    const q = new URLSearchParams(location.search).get('t');
-    const c = cached();
-    if (c && !q) setT(c);
-    if (q || c) load({ token: q || c.token });
-    const i = setInterval(() => { const k = q || cached()?.token; if (k) load({ token: k }); }, 5000);
+    const c = cached(); if (c) setT(c);
+    load().finally(() => setReady(true));
+    const i = setInterval(load, 5000);
     return () => clearInterval(i);
   }, []);
+  const submit = async () => {
+    const body = mode === 'login' ? { action: 'login', nik: f.nik, password: f.pw } : { action: 'activate', nik: f.nik, hp4: f.hp, password: f.pw };
+    const r = await fetch('/api/auth', { method: 'POST', body: JSON.stringify(body) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) return setErr(d.error || 'Gagal masuk');
+    setErr(''); load();
+  };
+  const out = async () => { await fetch('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }); localStorage.removeItem('tiket'); setT(null); };
+  if (!t && !ready) return <div className="wrap">Memuat...</div>;
   if (!t) return (
     <div className="wrap"><div className="card">
       <h1>Tiket gathering</h1>
-      <input placeholder="NIK" inputMode="numeric" value={nik} onChange={(e) => setNik(e.target.value)} />
-      <input placeholder="4 digit terakhir no. HP" inputMode="numeric" maxLength={4} value={pin} onChange={(e) => setPin(e.target.value)} />
+      <div className="row" style={{ marginBottom: 8 }}>
+        <button className={'btn b' + (mode === 'login' ? ' sel' : '')} onClick={() => { setMode('login'); setErr(''); }}>Masuk</button>
+        <button className={'btn b' + (mode === 'activate' ? ' sel' : '')} onClick={() => { setMode('activate'); setErr(''); }}>Aktivasi akun</button>
+      </div>
+      <input placeholder="NIK" inputMode="numeric" value={f.nik} onChange={set('nik')} />
+      {mode === 'activate' && <input placeholder="4 digit terakhir no. HP" inputMode="numeric" maxLength={4} value={f.hp} onChange={set('hp')} />}
+      <input type="password" placeholder={mode === 'login' ? 'Password' : 'Buat password (min. 6 karakter)'} value={f.pw} onChange={set('pw')} onKeyDown={(e) => e.key === 'Enter' && submit()} />
       {err && <p>{err}</p>}
-      <button className="btn" onClick={() => load({ nik, pin })}>Lihat tiket</button>
-    </div></div>
+      <button className="btn" onClick={submit}>{mode === 'login' ? 'Masuk' : 'Aktifkan dan masuk'}</button>
+    </div><a href="/login">Login panitia</a></div>
   );
   return (
     <div className="wrap">
@@ -49,7 +62,7 @@ export default function Home() {
         ))}
       </div>
       {err && <p>{err}</p>}
-      <button className="btn y" onClick={() => { localStorage.removeItem('tiket'); setT(null); }}>Ganti akun</button>
+      <button className="btn y" onClick={out}>Keluar</button>
     </div>
   );
 }

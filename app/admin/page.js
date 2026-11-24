@@ -8,9 +8,13 @@ export default function Admin() {
   const call = async (body) => {
     const r = await fetch('/api/admin', { method: 'POST', body: JSON.stringify(body) });
     if (r.status === 401) { location.href = '/login'; return {}; }
-    const j = await r.json(); setMsg(r.ok ? '' : j.error); return j;
+    const j = await r.json().catch(() => ({ error: 'Server error ' + r.status }));
+    setMsg(r.ok ? '' : j.error); return j;
   };
-  const load = async () => { const j = await call({ action: 'overview' }); if (j.employees) setD(j); };
+  const load = async () => {
+    const j = await call({ action: 'overview' });
+    if (j.employees) setD(j); else if (!j.error) setMsg('Data kosong, cek tabel dan key Supabase');
+  };
   const imp = async () => {
     const rows = csv.split('\n').map((l) => l.split(/[,;\t]/).map((s) => s.trim())).filter((r) => r[0] && r[0].toLowerCase() !== 'nik')
       .map(([nik, nama, cabang, hp]) => ({ nik, nama, cabang, hp }));

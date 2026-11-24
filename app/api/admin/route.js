@@ -26,6 +26,8 @@ export async function POST(req) {
         t('redemptions', 'coupon_type_id'),
         t('staff', 'id,username,nama,aktif').order('username'),
       ]);
+      const bad = [e, p, c, d, rd, st].find((x) => x.error);
+      if (bad) return json({ error: bad.error.message }, 500);
       return json({ employees: e.data, prizes: p.data, coupons: c.data, draws: d.data, redemptions: rd.data, staff: st.data });
     }
   }

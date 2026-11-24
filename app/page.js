@@ -7,7 +7,8 @@ export default function Home() {
   const load = async (body) => {
     try {
       const r = await fetch('/api/ticket', { method: 'POST', body: JSON.stringify(body) });
-      const d = await r.json();
+      const d = await r.json().catch(() => null);
+      if (!d) return setErr(`Server bermasalah (kode ${r.status}). Hubungi panitia.`);
       if (!r.ok) return setErr(d.error);
       setErr(''); setT(d); localStorage.setItem('tiket', JSON.stringify(d));
     } catch { setErr('Tidak ada sinyal. Tiket tersimpan tetap bisa dipakai.'); }

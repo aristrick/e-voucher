@@ -76,7 +76,7 @@ export default function Home() {
             <div className="mute" style={{ color: '#000', marginTop: 10 }}>Atas nama</div>
             <div className="t-name">{t.nama}</div>
             <div>NIK {t.nik}{unit(t) ? ' · ' + unit(t) : ''}</div>
-            {(e.event_date || e.event_venue) && <div style={{ marginTop: 6 }}>{[e.event_date, e.event_venue].filter(Boolean).join(' · ')}</div>}
+            {(e.event_date || e.event_venue) && <div style={{ marginTop: 6 }}>{e.event_date && <div>{e.event_date}</div>}{e.event_venue && <div>{e.event_venue}</div>}</div>}
           </div>
           <div className="t-tear" />
           <div className="t-bot">

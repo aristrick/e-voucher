@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { post, fmtFull } from '@/lib/client';
+import { post, fmtFull, unit } from '@/lib/client';
 
 const cached = () => { try { return JSON.parse(localStorage.getItem('tiket') || 'null'); } catch { return null; } };
 
@@ -75,7 +75,7 @@ export default function Home() {
             <div className="row"><b>{e.event_name || 'Gathering'}</b><span className={'chip' + (t.hadir ? '' : ' no')}>{t.hadir ? 'Sudah check-in' : 'Belum check-in'}</span></div>
             <div className="mute" style={{ color: '#000', marginTop: 10 }}>Atas nama</div>
             <div className="t-name">{t.nama}</div>
-            <div>NIK {t.nik}{t.cabang ? ' · ' + t.cabang : ''}</div>
+            <div>NIK {t.nik}{unit(t) ? ' · ' + unit(t) : ''}</div>
             {(e.event_date || e.event_venue) && <div style={{ marginTop: 6 }}>{[e.event_date, e.event_venue].filter(Boolean).join(' · ')}</div>}
           </div>
           <div className="t-tear" />

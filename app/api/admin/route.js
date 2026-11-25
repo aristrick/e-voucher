@@ -17,7 +17,7 @@ const must = (r) => {
 let ready = false;
 const probe = async () => {
   if (ready) return;
-  const [a, b] = await Promise.all([db.from('employees').select('wa_sent_at,fail_count,locked_until,max_hadiah').limit(1), db.from('settings').select('key').limit(1)]);
+  const [a, b] = await Promise.all([db.from('employees').select('wa_sent_at,fail_count,locked_until,max_hadiah,divisi').limit(1), db.from('settings').select('key').limit(1)]);
   if (a.error || b.error) throw new Error(MIGRATE_MSG);
   ready = true;
 };
@@ -46,7 +46,7 @@ const H = {
     ]);
     const cps = must(await db.from('coupon_types').select('id,nama').order('urutan').order('id')).data;
     const used = await Promise.all(cps.map((c) => n(head('redemptions').eq('coupon_type_id', c.id))));
-    const recent = must(await db.from('employees').select('nama,nik,cabang,checked_in_at')
+    const recent = must(await db.from('employees').select('nama,nik,cabang,divisi,checked_in_at')
       .not('checked_in_at', 'is', null).order('checked_in_at', { ascending: false }).limit(8)).data;
     let activity = [];
     try { const r = await db.from('activity_log').select('id,created_at,actor,kategori,ringkas,ok').order('created_at', { ascending: false }).limit(10); if (!r.error) activity = r.data || []; } catch {}
@@ -58,9 +58,9 @@ const H = {
     await probe();
     const size = Math.min(Math.max(Number(b.size) || 20, 5), 100);
     const page = Math.max(Number(b.page) || 1, 1), from = (page - 1) * size;
-    let q = db.from('employees').select('id,nik,nama,cabang,hp,checked_in_at,pass_hash,max_hadiah', { count: 'exact' });
+    let q = db.from('employees').select('id,nik,nama,cabang,divisi,hp,checked_in_at,pass_hash,max_hadiah', { count: 'exact' });
     const s = like(b.q);
-    if (s) q = q.or(`nama.ilike.%${s}%,nik.ilike.%${s}%,cabang.ilike.%${s}%`);
+    if (s) q = q.or(`nama.ilike.%${s}%,nik.ilike.%${s}%,cabang.ilike.%${s}%,divisi.ilike.%${s}%`);
     if (b.status === 'hadir') q = q.not('checked_in_at', 'is', null);
     if (b.status === 'belum') q = q.is('checked_in_at', null);
     if (b.status === 'nonaktif') q = q.is('pass_hash', null);
@@ -68,13 +68,15 @@ const H = {
     const ids = r.data.map((e) => e.id);
     const red = ids.length ? must(await db.from('redemptions').select('employee_id,coupon_type_id,created_at,coupon_types(nama)').in('employee_id', ids).order('created_at')).data : [];
     const by = {}; red.forEach((x) => { (by[x.employee_id] ||= []).push({ id: x.coupon_type_id, nama: x.coupon_types?.nama, at: x.created_at }); });
-    return { rows: r.data.map(({ pass_hash, ...e }) => ({ ...e, aktif: !!pass_hash, kupon: by[e.id] || [] })), total: r.count || 0, page, size };
+    const dr = ids.length ? must(await db.from('draws').select('id,employee_id,status,drawn_at,prizes(nama)').in('employee_id', ids).order('drawn_at')).data : [];
+    const un = {}; dr.forEach((x) => { (un[x.employee_id] ||= []).push({ id: x.id, nama: x.prizes?.nama, status: x.status, at: x.drawn_at }); });
+    return { rows: r.data.map(({ pass_hash, ...e }) => ({ ...e, aktif: !!pass_hash, kupon: by[e.id] || [], undian: un[e.id] || [] })), total: r.count || 0, page, size };
   },
   async exportEmployees() {
     const coupons = must(await db.from('coupon_types').select('id,nama').order('urutan').order('id')).data;
     const emp = [], red = {}, won = {};
     for (let i = 0; ; i += 1000) {
-      const r = must(await db.from('employees').select('id,nik,nama,cabang,hp,checked_in_at,pass_hash,max_hadiah').order('nama').order('nik').range(i, i + 999)).data;
+      const r = must(await db.from('employees').select('id,nik,nama,cabang,divisi,hp,checked_in_at,pass_hash,max_hadiah').order('nama').order('nik').range(i, i + 999)).data;
       emp.push(...r); if (r.length < 1000) break;
     }
     for (let i = 0; ; i += 1000) {
@@ -94,7 +96,7 @@ const H = {
       const nik = clean(r.nik), nama = clean(r.nama);
       if (!nik || !nama || !/^\w+$/.test(nik)) { skipped++; continue; }
       // nomor HP tidak diimpor: peserta mengisinya sendiri saat membuat password
-      seen.set(nik, { nik, nama, cabang: clean(r.cabang) || null });
+      seen.set(nik, { nik, nama, cabang: clean(r.cabang) || null, divisi: clean(r.divisi) || null });
     }
     const rows = [...seen.values()];
     for (let i = 0; i < rows.length; i += 500) must(await db.from('employees').upsert(rows.slice(i, i + 500), { onConflict: 'nik' }));
@@ -104,14 +106,14 @@ const H = {
     const nik = clean(b.nik), nama = clean(b.nama);
     if (!nik || !/^\w+$/.test(nik)) throw new Error('NIK wajib diisi (huruf atau angka, tanpa spasi)');
     if (!nama) throw new Error('Nama wajib diisi');
-    must(await db.from('employees').insert({ nik, nama, cabang: clean(b.cabang) || null, max_hadiah: maxH(b.max_hadiah) }));
+    must(await db.from('employees').insert({ nik, nama, cabang: clean(b.cabang) || null, divisi: clean(b.divisi) || null, max_hadiah: maxH(b.max_hadiah) }));
     return {};
   },
   async updateEmployee(b) {
     const nik = clean(b.nik), nama = clean(b.nama);
     if (!nik || !/^\w+$/.test(nik)) throw new Error('NIK wajib diisi (huruf atau angka, tanpa spasi)');
     if (!nama) throw new Error('Nama wajib diisi');
-    const r = must(await db.from('employees').update({ nik, nama, cabang: clean(b.cabang) || null, max_hadiah: maxH(b.max_hadiah) }).eq('id', b.id).select('id'));
+    const r = must(await db.from('employees').update({ nik, nama, cabang: clean(b.cabang) || null, divisi: clean(b.divisi) || null, max_hadiah: maxH(b.max_hadiah) }).eq('id', b.id).select('id'));
     if (!r.data.length) throw new Error('Peserta tidak ditemukan');
     return {};
   },
@@ -134,6 +136,15 @@ const H = {
     if (!e) throw new Error('NIK tidak ditemukan');
     let q = db.from('redemptions').delete().eq('employee_id', e.id);
     if (b.coupon_id) q = q.eq('coupon_type_id', Number(b.coupon_id));
+    const r = must(await q.select('id'));
+    return { removed: r.data.length };
+  },
+  // hapus catatan undian peserta (semua, atau satu jika draw_id diisi): stok hadiah kembali dan peserta bisa diundi lagi
+  async resetUndian(b) {
+    const e = must(await db.from('employees').select('id').eq('nik', clean(b.nik)).maybeSingle()).data;
+    if (!e) throw new Error('NIK tidak ditemukan');
+    let q = db.from('draws').delete().eq('employee_id', e.id);
+    if (b.draw_id) q = q.eq('id', String(b.draw_id));
     const r = must(await q.select('id'));
     return { removed: r.data.length };
   },
@@ -183,7 +194,7 @@ const H = {
   },
   async deletePrize(b) { must(await db.from('prizes').delete().eq('id', b.id)); return {}; },
   async winners() {
-    return { draws: must(await db.from('draws').select('id,status,drawn_at,prizes(nama),employees(nama,nik,cabang)').order('drawn_at', { ascending: false }).limit(500)).data };
+    return { draws: must(await db.from('draws').select('id,status,drawn_at,prizes(nama),employees(nama,nik,cabang,divisi)').order('drawn_at', { ascending: false }).limit(500)).data };
   },
   async forfeit(b) { must(await db.from('draws').update({ status: 'forfeited' }).eq('id', b.draw_id)); return {}; },
 
@@ -201,9 +212,9 @@ const H = {
     const w = await db.rpc('draw_winner', { p_prize: pid });
     if (w.error) throw new Error(/function|does not exist|schema cache/i.test(w.error.message) ? MIGRATE_MSG : w.error.message);
     const win = w.data[0];
-    const dc = await db.rpc('wheel_candidates', { p_n: 17, p_prize: pid });
+    const [dc, dv] = await Promise.all([db.rpc('wheel_candidates', { p_n: 17, p_prize: pid }), db.from('employees').select('divisi').eq('id', win.w_id).maybeSingle()]);
     return {
-      winner: { draw_id: win.w_draw, nama: win.w_nama, nik: win.w_nik, cabang: win.w_cabang },
+      winner: { draw_id: win.w_draw, nama: win.w_nama, nik: win.w_nik, cabang: win.w_cabang, divisi: dv.data?.divisi || null },
       decoys: (dc.data || []).filter((x) => x.c_nik !== win.w_nik).map((x) => ({ nama: x.c_nama, nik: x.c_nik })),
     };
   },
@@ -246,6 +257,7 @@ const LOGS = {
   updateEmployee: ['peserta', (b) => `Mengubah data peserta ${clean(b.nama)} (NIK ${clean(b.nik)})`],
   deleteEmployee: ['peserta', (b, r, c) => `Menghapus peserta ${nm(c)}`],
   resetKupon: ['peserta', (b, r, c) => `Reset kupon ${nm(c)}` + (b.kupon_nama ? ` (${String(b.kupon_nama).slice(0, 40)})` : ' (semua kupon)') + `: ${r.removed} catatan dihapus`],
+  resetUndian: ['undian', (b, r, c) => `Reset undian ${nm(c)}` + (b.hadiah_nama ? ` (${String(b.hadiah_nama).slice(0, 40)})` : ' (semua undian)') + `: ${r.removed} catatan dihapus`],
   resetPeserta: ['peserta', (b, r, c) => `Reset password peserta ${nm(c)}`],
   import: ['peserta', (b, r) => `Import Excel: ${r.imported} peserta` + (r.skipped ? `, ${r.skipped} dilewati` : '') + (r.duplicates ? `, ${r.duplicates} NIK ganda` : '')],
   exportEmployees: ['peserta', (b, r) => `Ekspor Excel (${r.rows?.length || 0} peserta)`],

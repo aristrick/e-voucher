@@ -16,7 +16,7 @@ Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon 
 
 ## 1. Supabase
 1. Buat project di supabase.com (pilih region Singapore).
-2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`, `supabase/migration-v4.sql`.
+2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`, `supabase/migration-v4.sql`, `supabase/migration-v6.sql`.
    Jika database sudah berjalan dari versi lama, jalankan `migration-v2.sql` lalu `migration-v3.sql` (v3 wajib untuk jatah hadiah per karyawan). Tanpa file ini, dashboard dan undian tidak jalan.
 3. Project Settings > API Keys: salin Project URL dan secret/service_role key. RAHASIA, jangan di-commit.
 
@@ -42,7 +42,7 @@ Lalu `npm run dev` dan buka http://localhost:3000. Untuk uji performa pakai `npm
 
 ## Persiapan acara
 1. `/admin/pengaturan`: isi nama, tanggal, dan lokasi acara.
-2. `/admin/peserta`: Tambah peserta satu per satu lewat tombol Tambah peserta, atau Import Excel (.xlsx, kolom NIK, Nama, Cabang; template bisa diunduh di jendela import). Nomor HP tidak diimpor: peserta mengisinya sendiri saat membuat password.
+2. `/admin/peserta`: Tambah peserta satu per satu lewat tombol Tambah peserta, atau Import Excel (.xlsx, kolom NIK, Nama, Divisi, Cabang; template bisa diunduh di jendela import). Nomor HP tidak diimpor: peserta mengisinya sendiri saat membuat password.
 3. Atur `/admin/kupon`, `/admin/hadiah`, dan buat akun di `/admin/panitia`.
 4. Uji: dua HP scan QR yang sama, hanya satu yang boleh berhasil.
 
@@ -84,3 +84,10 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - Tombol Klaim tiket saya dihapus dari halaman depan.
 - Menu History dipindah ke bawah, sebelum Pengaturan.
 - Scan lebih cepat: popup tidak lagi mengunci kamera, pembaca QR bawaan perangkat dipakai jika ada, jalur database dipangkas (check-in 1 query, redeem 2 query), dan pencatatan History berjalan setelah respons dikirim. Tidak ada migrasi baru.
+
+## Perubahan v6
+- WAJIB: jalankan `supabase/migration-v6.sql` sekali di SQL Editor Supabase sebelum memakai versi ini. Isinya menambah kolom `divisi` pada tabel peserta. Tanpa ini check-in dan halaman peserta error.
+- Peserta punya Divisi selain Cabang: form tambah/ubah, tabel peserta, pencarian, import dan ekspor Excel (kolom Divisi; judul "Devisi" juga dikenali), e-tiket, popup scan, layar undian, dan halaman Pemenang. File Excel lama tanpa kolom Divisi tetap bisa diimpor, tetapi mengosongkan Divisi peserta dengan NIK yang sama.
+- Peserta > Reset > Undian: hapus satu catatan undian atau semua catatan undian peserta. Stok hadiah kembali dan peserta (termasuk yang pernah ditandai tidak hadir) bisa diundi lagi. Tercatat di History.
+- Kamera scan: fokus otomatis terus-menerus, resolusi 720p, dan area baca lebih luas (90% layar kamera).
+- Tanda "Setia Kawan Project by Aris Setiawan" di paling bawah semua halaman.

@@ -26,29 +26,29 @@ async function handle(req, b) {
     if (action === 'checkin') {
       // jalur cepat: satu update bersyarat (hanya berhasil jika belum check-in), langsung mengembalikan data peserta
       const now = new Date().toISOString();
-      const up = await db.from('employees').update({ checked_in_at: now }).or(match).is('checked_in_at', null).select('nama,nik,cabang');
+      const up = await db.from('employees').update({ checked_in_at: now }).or(match).is('checked_in_at', null).select('nama,nik,cabang,divisi');
       if (up.error) return R({ ok: false, aksi: 'checkin', msg: up.error.message }, 500);
       if (up.data?.length === 1) {
         const e = up.data[0];
-        return R({ ok: true, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', at: now, msg: 'Check-in berhasil' });
+        return R({ ok: true, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '', at: now, msg: 'Check-in berhasil' });
       }
       // tidak ada baris yang berubah: tiket tidak dikenal atau sudah check-in
-      const { data: e } = await db.from('employees').select('nama,nik,cabang,checked_in_at').or(match).maybeSingle();
+      const { data: e } = await db.from('employees').select('nama,nik,cabang,divisi,checked_in_at').or(match).maybeSingle();
       if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
-      return R({ ok: false, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', at: e.checked_in_at, msg: 'Sudah check-in sebelumnya' });
+      return R({ ok: false, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '', at: e.checked_in_at, msg: 'Sudah check-in sebelumnya' });
     }
 
     if (action !== 'redeem') return [json({ ok: false, msg: 'Aksi tidak dikenal' }, 400)];
     const cid = Number(coupon_id);
     // peserta dan kupon dicari bersamaan, bukan berurutan
     const [pe, pc] = await Promise.all([
-      db.from('employees').select('id,nama,nik,cabang,checked_in_at').or(match).maybeSingle(),
+      db.from('employees').select('id,nama,nik,cabang,divisi,checked_in_at').or(match).maybeSingle(),
       cid ? db.from('coupon_types').select('id,nama').eq('id', cid).maybeSingle() : Promise.resolve({ data: null }),
     ]);
     if (pe.error) return R({ ok: false, msg: pe.error.message }, 500);
     const e = pe.data;
     if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
-    const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '' };
+    const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '' };
     if (!e.checked_in_at) return R({ ok: false, aksi: 'redeem', ...who, msg: 'Belum check-in di pintu masuk' });
     if (!cid) return R({ ok: false, aksi: 'redeem', ...who, msg: 'Pilih kupon dulu' });
     const cp = pc.data;

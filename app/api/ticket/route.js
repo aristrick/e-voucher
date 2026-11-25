@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req) {
   const s = read(req);
   if (s?.t !== 'peserta') return json({ error: 'Belum login' }, 401);
-  const { data: e } = await db.from('employees').select('id,nik,nama,cabang,token,checked_in_at').eq('id', s.id).maybeSingle();
+  const { data: e } = await db.from('employees').select('id,nik,nama,cabang,divisi,token,checked_in_at').eq('id', s.id).maybeSingle();
   if (!e) return json({ error: 'Belum login' }, 401);
   const [c, r, w] = await Promise.all([
     db.from('coupon_types').select('id,nama').order('urutan').order('id'),
@@ -13,7 +13,7 @@ export async function POST(req) {
   ]);
   const done = Object.fromEntries((r.data || []).map((x) => [x.coupon_type_id, x.created_at]));
   return json({
-    nama: e.nama, nik: e.nik, cabang: e.cabang, token: e.token,
+    nama: e.nama, nik: e.nik, cabang: e.cabang, divisi: e.divisi, token: e.token,
     kode: e.token.toUpperCase().replace(/(.{4})(?=.)/g, '$1-'),
     hadir: !!e.checked_in_at, hadir_at: e.checked_in_at,
     coupons: (c.data || []).map((x) => ({ ...x, redeemed_at: done[x.id] || null })),

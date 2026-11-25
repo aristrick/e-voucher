@@ -253,3 +253,6 @@ td.act,th.act{width:1%;white-space:nowrap;text-align:right}
 .opt:hover{background:#fbffe6}.opt:active{transform:translate(3px,3px);box-shadow:none}
 .opt b{display:block}.opt span{font-size:13px;color:var(--mute)}
 .opt.danger{background:#ffe3e3}
+
+/* ---------- tanda pembuat ---------- */
+.credit{text-align:center;padding:14px 16px 20px;font-size:13px;font-weight:700;color:#000}

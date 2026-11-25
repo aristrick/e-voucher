@@ -1,6 +1,6 @@
 'use client';
 import { useLoad, Loading, Title } from './ui';
-import { fmtDateTime, fmtTime } from '@/lib/client';
+import { fmtDateTime, fmtTime, unit } from '@/lib/client';
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 export default function Ringkasan() {
   const { data: d, err, reload } = useLoad({ action: 'overview' }, 10000);
@@ -38,7 +38,7 @@ export default function Ringkasan() {
           {d.recent.length === 0 && <div className="empty">Belum ada yang check-in.</div>}
           <ul className="feed">{d.recent.map((r) => (
             <li key={r.nik}>
-              <span className="who"><b>{r.nama}</b><span className="mute">{r.cabang || r.nik}</span></span>
+              <span className="who"><b>{r.nama}</b><span className="mute">{unit(r) || r.nik}</span></span>
               <span className="chip">{fmtDateTime(r.checked_in_at)}</span>
             </li>))}
           </ul>

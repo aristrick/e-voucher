@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { post, fmtTime, fmtFull } from '@/lib/client';
+import { post, fmtTime, fmtFull, unit } from '@/lib/client';
 import * as sfx from '@/lib/sound';
 
 export default function Staff() {
@@ -76,7 +76,9 @@ export default function Staff() {
       try {
         await s.start({ facingMode: 'environment' }, {
           fps: 24, disableFlip: true,
-          qrbox: (w, h) => { const m = Math.floor(Math.min(w, h) * 0.75); return { width: m, height: m }; },
+          // Kamera belakang dengan fokus otomatis terus-menerus dan resolusi 720p: QR tidak perlu menunggu fokus ulang dan tetap tajam
+          videoConstraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] },
+          qrbox: (w, h) => { const m = Math.floor(Math.min(w, h) * 0.9); return { width: m, height: m }; },   // area baca lebih luas
           experimentalFeatures: { useBarCodeDetectorIfSupported: true },   // pakai pembaca QR bawaan perangkat jika ada (jauh lebih cepat)
         }, (t) => act(t));
       }
@@ -131,7 +133,7 @@ export default function Staff() {
             <div className="pop-icon">{res.ok ? '✓' : '✕'}</div>
             <div className="pop-title">{res.ok ? 'Berhasil' : 'Gagal'}</div>
             {res.nama && <div className="pop-name">{res.nama}</div>}
-            {res.nik && <div>NIK {res.nik}{res.cabang ? ' · ' + res.cabang : ''}</div>}
+            {res.nik && <div>NIK {res.nik}{unit(res) ? ' · ' + unit(res) : ''}</div>}
             {res.kupon && <div className="pop-item">{res.kupon}</div>}
             <div className="pop-msg">{res.msg}</div>
             {res.at && <div className="pop-time">{res.ok ? 'Tercatat' : 'Sebelumnya'}: {fmtFull(res.at)}</div>}

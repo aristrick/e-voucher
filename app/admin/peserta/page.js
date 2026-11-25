@@ -5,7 +5,7 @@ import { adm, fmtFull, fmtDateTime, fmtTime } from '@/lib/client';
 
 const FILTERS = [['', 'Semua'], ['hadir', 'Sudah check-in'], ['belum', 'Belum check-in'], ['nonaktif', 'Belum aktivasi']];
 const SIZE = 50;
-const EMPTY = { id: null, nik: '', nama: '', cabang: '', max_hadiah: '' };
+const EMPTY = { id: null, nik: '', nama: '', divisi: '', cabang: '', max_hadiah: '' };
 
 export default function Peserta() {
   const { ask } = useUI();
@@ -49,21 +49,22 @@ export default function Peserta() {
       <Msg />
       <div className="card">
         <div className="toolbar">
-          <input aria-label="Cari peserta" placeholder="Cari nama, NIK, atau cabang" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input aria-label="Cari peserta" placeholder="Cari nama, NIK, divisi, atau cabang" value={q} onChange={(e) => setQ(e.target.value)} />
           <div className="filters">
             {FILTERS.map(([v, l]) => <button key={v} className={'btn sm ' + (status === v ? 'sel' : 'w')} onClick={() => { setStatus(v); setPage(1); }}>{l}</button>)}
           </div>
         </div>
       </div>
-      {!d ? <Loading err={err} cols={7} rows={10} /> : <>
+      {!d ? <Loading err={err} cols={8} rows={10} /> : <>
         {err && <div className="err">{err}</div>}
         {d.rows.length === 0 ? <div className="card empty">{qq || status ? 'Tidak ada peserta yang cocok.' : 'Belum ada peserta. Klik Tambah peserta, atau Import Excel untuk banyak sekaligus.'}</div> : (
           <div className={'tw stick' + (loading ? ' busy' : '')}><table className="rt">
-            <thead><tr><th>Nama</th><th>NIK</th><th>Cabang</th><th>Check-in</th><th>Kupon</th><th>Akun</th><th className="act">Aksi</th></tr></thead>
+            <thead><tr><th>Nama</th><th>NIK</th><th>Divisi</th><th>Cabang</th><th>Check-in</th><th>Kupon</th><th>Akun</th><th className="act">Aksi</th></tr></thead>
             <tbody>{d.rows.map((e) => (
               <tr key={e.id}>
                 <td className="nm"><b>{e.nama}</b>{e.max_hadiah ? <span className="sub">Jatah hadiah: {e.max_hadiah}</span> : null}</td>
                 <td className="nw mono" data-label="NIK">{e.nik}</td>
+                <td className="nw" data-label="Divisi">{e.divisi || '-'}</td>
                 <td className="nw" data-label="Cabang">{e.cabang || '-'}</td>
                 <td className="nw" data-label="Check-in">{e.checked_in_at
                   ? <span><span className="chip">Sudah</span><span className="sub" style={{ marginTop: 3 }}>{fmtDateTime(e.checked_in_at)}</span></span>
@@ -75,8 +76,8 @@ export default function Peserta() {
                   : <span className="chip warn">Belum aktivasi</span>}</td>
                 <td className="act"><span className="acts">
                   {!e.checked_in_at && <button className="btn sm g" onClick={async () => (await ask(`Check-in manual untuk ${e.nama}? Waktu check-in dicatat sekarang.`, { title: 'Check-in manual', okText: 'Check-in' })) && run({ action: 'checkinManual', nik: e.nik }, `${e.nama} berhasil check-in`)}>Check-in</button>}
-                  <button className="btn sm y" onClick={() => { setMsg(null); setForm({ id: e.id, nik: e.nik, nama: e.nama, cabang: e.cabang || '', max_hadiah: e.max_hadiah || '' }); }}>Ubah</button>
-                  {(e.aktif || e.kupon.length > 0) && <button className="btn sm w" onClick={() => setRs(e)}>Reset</button>}
+                  <button className="btn sm y" onClick={() => { setMsg(null); setForm({ id: e.id, nik: e.nik, nama: e.nama, divisi: e.divisi || '', cabang: e.cabang || '', max_hadiah: e.max_hadiah || '' }); }}>Ubah</button>
+                  {(e.aktif || e.kupon.length > 0 || e.undian.length > 0) && <button className="btn sm w" onClick={() => setRs(e)}>Reset</button>}
                   <button className="btn sm r" onClick={async () => (await ask(`Hapus ${e.nama}? Riwayat kupon dan undian peserta ini ikut terhapus.`)) && run({ action: 'deleteEmployee', nik: e.nik }, 'Peserta dihapus')}>Hapus</button>
                 </span></td>
               </tr>))}
@@ -93,6 +94,11 @@ export default function Peserta() {
           if (await ask(all ? `Hapus semua catatan penukaran kupon ${e.nama} (${e.kupon.length} kupon)? Peserta bisa menukar kupon itu lagi.` : `Hapus catatan penukaran kupon ${k.nama} milik ${e.nama}? Peserta bisa menukarnya lagi.`, { title: all ? 'Reset semua kupon?' : 'Reset kupon?', danger: true, okText: 'Ya, reset' }))
             done({ body: { action: 'resetKupon', nik: e.nik, coupon_id: k?.id, kupon_nama: k?.nama }, ok: all ? 'Semua kupon direset' : `Kupon ${k.nama} direset` });
         };
+        const resetUndian = async (u) => {
+          const all = !u;
+          if (await ask(all ? `Hapus semua catatan undian ${e.nama} (${e.undian.length} catatan)? Stok hadiah kembali dan peserta bisa diundi lagi.` : `Hapus catatan undian ${u.nama} milik ${e.nama}? Stok hadiah kembali dan peserta bisa diundi lagi.`, { title: all ? 'Reset semua undian?' : 'Reset undian?', danger: true, okText: 'Ya, reset' }))
+            done({ body: { action: 'resetUndian', nik: e.nik, draw_id: u?.id, hadiah_nama: u?.nama }, ok: all ? 'Semua undian direset' : `Undian ${u.nama} direset` });
+        };
         const resetAkun = async () => {
           if (await ask(`Reset password dan nomor HP ${e.nama}? Peserta perlu aktivasi ulang (isi nomor HP dan password baru).`, { title: 'Reset akun?', danger: true, okText: 'Ya, reset' }))
             done({ body: { action: 'resetPeserta', nik: e.nik }, ok: 'Password dan nomor HP direset. Peserta bisa aktivasi ulang.' });
@@ -108,12 +114,18 @@ export default function Peserta() {
             {e.kupon.map((k) => <button key={k.id} className="opt" onClick={() => resetKupon(k)}><b>Reset kupon {k.nama}</b><span>Ditukar {fmtFull(k.at)}</span></button>)}
             {e.kupon.length > 1 && <button className="opt danger" onClick={() => resetKupon(null)}><b>Reset semua kupon ({e.kupon.length})</b><span>Semua catatan penukaran peserta ini dihapus</span></button>}
           </>}
+          <h3 style={{ marginTop: 14 }}>Undian</h3>
+          {e.undian.length === 0 ? <div className="mute">Belum pernah menang undian.</div> : <>
+            {e.undian.map((u) => <button key={u.id} className="opt" onClick={() => resetUndian(u)}><b>Reset undian {u.nama}</b><span>{u.status === 'forfeited' ? 'Ditandai tidak hadir' : 'Menang'} · {fmtFull(u.at)}</span></button>)}
+            {e.undian.length > 1 && <button className="opt danger" onClick={() => resetUndian(null)}><b>Reset semua undian ({e.undian.length})</b><span>Semua catatan undian peserta ini dihapus</span></button>}
+          </>}
         </Modal>;
       })()}
 
       {form && <Modal title={form.id ? 'Ubah peserta' : 'Tambah peserta'} onClose={() => setForm(null)}>
         <div className="form2"><div><label className="lbl" htmlFor="f-nik">NIK</label><input id="f-nik" inputMode="numeric" placeholder="20190342" value={form.nik} onChange={fset('nik')} /></div>
         <div><label className="lbl" htmlFor="f-nama">Nama</label><input id="f-nama" placeholder="Budi Santoso" value={form.nama} onChange={fset('nama')} /></div>
+        <div><label className="lbl" htmlFor="f-div">Divisi (opsional)</label><input id="f-div" placeholder="Sales" value={form.divisi} onChange={fset('divisi')} /></div>
         <div><label className="lbl" htmlFor="f-cab">Cabang (opsional)</label><input id="f-cab" placeholder="Jakarta Barat" value={form.cabang} onChange={fset('cabang')} /></div>
         <div><label className="lbl" htmlFor="f-max">Jatah hadiah undian (opsional)</label>
         <input id="f-max" type="number" min="1" max="100" placeholder="Kosong = ikut pengaturan umum" value={form.max_hadiah} onChange={fset('max_hadiah')} /></div></div>
@@ -122,14 +134,14 @@ export default function Peserta() {
       </Modal>}
 
       {imp && <Modal title="Import peserta dari Excel" onClose={closeImp}>
-        <p className="mute">Pilih file <b>.xlsx</b> dengan kolom <b>NIK, Nama, Cabang</b> (satu orang per baris, judul kolom di baris pertama). NIK yang sudah ada akan diperbarui.</p>
+        <p className="mute">Pilih file <b>.xlsx</b> dengan kolom <b>NIK, Nama, Divisi, Cabang</b> (satu orang per baris, judul kolom di baris pertama). NIK yang sudah ada akan diperbarui.</p>
         <button className="btn sm w" onClick={template}>Unduh template Excel</button>
         <input type="file" accept=".xlsx" onChange={onFile} aria-label="Pilih file Excel" style={{ marginTop: 12 }} />
         {fname && !ferr && <div className="mute">{fname}</div>}
         {ferr && <div className="err">{ferr}</div>}
         {rows.length > 0 && <div className="tw" style={{ maxHeight: 180, overflow: 'auto' }}><table>
-          <thead><tr><th>NIK</th><th>Nama</th><th>Cabang</th></tr></thead>
-          <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}><td>{r.nik}</td><td>{r.nama}</td><td>{r.cabang}</td></tr>)}</tbody></table></div>}
+          <thead><tr><th>NIK</th><th>Nama</th><th>Divisi</th><th>Cabang</th></tr></thead>
+          <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}><td>{r.nik}</td><td>{r.nama}</td><td>{r.divisi}</td><td>{r.cabang}</td></tr>)}</tbody></table></div>}
         <div className="row"><span className="mute">{rows.length} baris siap diimpor</span>
           <button className="btn" disabled={!rows.length} onClick={doImport}>Import {rows.length || ''} peserta</button></div>
       </Modal>}

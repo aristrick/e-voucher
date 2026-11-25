@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { adm } from '@/lib/client';
+import { adm, unit } from '@/lib/client';
 import * as sfx from '@/lib/sound';
 
 const COLORS = ['#A66CFF', '#FF8FB8', '#FFD84D', '#7CC4FF', '#C8E64A'];
@@ -144,7 +144,7 @@ export default function Stage() {
           <div className="pop-box yellow" role="dialog" aria-modal="true" aria-label="Pemenang">
             <div>Pemenang {cur?.nama}</div>
             <div className="win-name">{win.nama}</div>
-            <div>NIK {win.nik}{win.cabang ? ' · ' + win.cabang : ''}</div>
+            <div>NIK {win.nik}{unit(win) ? ' · ' + unit(win) : ''}</div>
             <div className="gap" style={{ justifyContent: 'center', marginTop: 18 }}>
               <button className="btn g" onClick={() => setWin(null)}>Selesai</button>
               <button className="btn w" onClick={forfeit}>Tidak hadir, undi ulang</button>

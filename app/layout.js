@@ -7,7 +7,10 @@ export default function Root({ children }) {
       <head>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <footer className="credit">Setia Kawan Project by Aris Setiawan</footer>
+      </body>
     </html>
   );
 }

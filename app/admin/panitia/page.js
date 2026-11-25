@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { useLoad, useAct, Modal, Loading, Title } from '../ui';
+import { useLoad, useAct, Modal, Loading, Title, useUI } from '../ui';
 export default function Panitia() {
+  const { ask } = useUI();
   const { data: d, err, reload } = useLoad({ action: 'staff' });
   const { run, Msg } = useAct(() => reload(true));
   const [add, setAdd] = useState(false), [f, setF] = useState({ username: '', nama: '', password: '' }), [rs, setRs] = useState(null), [pw, setPw] = useState('');
@@ -12,7 +13,7 @@ export default function Panitia() {
     <>
       <Title right={<button className="btn" onClick={() => setAdd(true)}>Tambah panitia</button>}>Panitia</Title>
       <Msg />
-      {!d ? <Loading err={err} /> : d.staff.length === 0 ? <div className="card empty">Belum ada akun panitia. Klik Tambah panitia.</div> : (
+      {!d ? <Loading err={err} cols={4} rows={5} /> : d.staff.length === 0 ? <div className="card empty">Belum ada akun panitia. Klik Tambah panitia.</div> : (
         <div className="tw stick"><table className="rt">
           <thead><tr><th>Username</th><th>Nama</th><th>Status</th><th className="act">Aksi</th></tr></thead>
           <tbody>{d.staff.map((s) => (
@@ -21,7 +22,7 @@ export default function Panitia() {
               <td className="act"><span className="acts">
                 <button className="btn sm y" onClick={() => run({ action: 'toggleStaff', id: s.id, aktif: !s.aktif })}>{s.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
                 <button className="btn sm w" onClick={() => setRs(s)}>Ganti password</button>
-                <button className="btn sm r" onClick={() => confirm(`Hapus akun ${s.username}?`) && run({ action: 'deleteStaff', id: s.id }, 'Akun dihapus')}>Hapus</button>
+                <button className="btn sm r" onClick={async () => (await ask(`Hapus akun ${s.username}?`)) && run({ action: 'deleteStaff', id: s.id }, 'Akun dihapus')}>Hapus</button>
               </span></td></tr>))}
           </tbody></table></div>
       )}

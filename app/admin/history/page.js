@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { useLoad, Pager, Loading, Title } from '../ui';
+import { useLoad, Pager, Loading, Busy, Title } from '../ui';
 import { fmtDateTime, wib } from '@/lib/client';
 
 const KAT = [['', 'Semua'], ['checkin', 'Check-in'], ['redeem', 'Redeem'], ['peserta', 'Peserta'], ['undian', 'Undian'], ['hadiah', 'Hadiah'], ['kupon', 'Kupon'], ['panitia', 'Panitia'], ['pengaturan', 'Pengaturan']];
@@ -11,7 +11,7 @@ const SIZE = 50;
 export default function History() {
   const [q, setQ] = useState(''), [qq, setQq] = useState(''), [kat, setKat] = useState(''), [st, setSt] = useState(''), [page, setPage] = useState(1), [auto, setAuto] = useState(true);
   useEffect(() => { const t = setTimeout(() => { setQq(q); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);
-  const { data: d, err, reload } = useLoad({ action: 'history', q: qq, kategori: kat, status: st, page, size: SIZE }, auto && page === 1 ? 5000 : 0);
+  const { data: d, err, reload, loading } = useLoad({ action: 'history', q: qq, kategori: kat, status: st, page, size: SIZE }, auto && page === 1 ? 5000 : 0);
 
   // kelompokkan per tanggal supaya mudah dibaca
   const groups = [];
@@ -23,6 +23,7 @@ export default function History() {
 
   return (
     <>
+      <Busy on={loading && !!d} />
       <Title right={<>
         <label className="live" style={{ cursor: 'pointer' }}><input type="checkbox" style={{ width: 'auto', margin: 0 }} checked={auto} onChange={(e) => setAuto(e.target.checked)} /> Otomatis perbarui</label>
         <button className="btn sm b" onClick={() => reload()}>Segarkan</button></>}>History</Title>
@@ -36,8 +37,8 @@ export default function History() {
         </div>
       </div>
       {err && <div className="err">{err}</div>}
-      {!d ? <Loading err={err} /> : d.rows.length === 0 ? <div className="card empty">{qq || kat || st ? 'Tidak ada aktivitas yang cocok.' : 'Belum ada aktivitas tercatat. Aktivitas baru muncul di sini otomatis.'}</div> : (
-        <div className="tw stick"><table className="rt">
+      {!d ? <Loading err={err} cols={5} rows={12} /> : d.rows.length === 0 ? <div className="card empty">{qq || kat || st ? 'Tidak ada aktivitas yang cocok.' : 'Belum ada aktivitas tercatat. Aktivitas baru muncul di sini otomatis.'}</div> : (
+        <div className={'tw stick' + (loading ? ' busy' : '')}><table className="rt">
           <thead><tr><th>Waktu</th><th>Kategori</th><th>Aktivitas</th><th>Oleh</th><th>Hasil</th></tr></thead>
           <tbody>{groups.map((g) => [
             <tr key={'h' + g.tgl} className="dayrow"><td colSpan={5}><b>{g.tgl}</b></td></tr>,

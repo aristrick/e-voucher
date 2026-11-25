@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { db, role, json, MIGRATE_MSG } from '@/lib/db';
 import { hash } from '@/lib/auth';
 import { getSettings, DEFAULTS } from '@/lib/settings';
@@ -65,8 +66,8 @@ const H = {
     if (b.status === 'nonaktif') q = q.is('pass_hash', null);
     const r = must(await q.order('nama').order('nik').range(from, from + size - 1));
     const ids = r.data.map((e) => e.id);
-    const red = ids.length ? must(await db.from('redemptions').select('employee_id,created_at,coupon_types(nama)').in('employee_id', ids).order('created_at')).data : [];
-    const by = {}; red.forEach((x) => { (by[x.employee_id] ||= []).push({ nama: x.coupon_types?.nama, at: x.created_at }); });
+    const red = ids.length ? must(await db.from('redemptions').select('employee_id,coupon_type_id,created_at,coupon_types(nama)').in('employee_id', ids).order('created_at')).data : [];
+    const by = {}; red.forEach((x) => { (by[x.employee_id] ||= []).push({ id: x.coupon_type_id, nama: x.coupon_types?.nama, at: x.created_at }); });
     return { rows: r.data.map(({ pass_hash, ...e }) => ({ ...e, aktif: !!pass_hash, kupon: by[e.id] || [] })), total: r.count || 0, page, size };
   },
   async exportEmployees() {
@@ -126,6 +127,15 @@ const H = {
     const r = must(await db.from('employees').update({ pass_hash: null, hp: null, fail_count: 0, locked_until: null }).eq('nik', clean(b.nik)).select('id'));
     if (!r.data.length) throw new Error('NIK tidak ditemukan');
     return {};
+  },
+  // hapus catatan penukaran kupon peserta (semua kupon, atau satu kupon jika coupon_id diisi)
+  async resetKupon(b) {
+    const e = must(await db.from('employees').select('id').eq('nik', clean(b.nik)).maybeSingle()).data;
+    if (!e) throw new Error('NIK tidak ditemukan');
+    let q = db.from('redemptions').delete().eq('employee_id', e.id);
+    if (b.coupon_id) q = q.eq('coupon_type_id', Number(b.coupon_id));
+    const r = must(await q.select('id'));
+    return { removed: r.data.length };
   },
   async markSent(b) { must(await db.from('employees').update({ wa_sent_at: b.sent === false ? null : iso() }).eq('nik', clean(b.nik))); return {}; },
   async deleteEmployee(b) { must(await db.from('employees').delete().eq('nik', clean(b.nik))); return {}; },
@@ -235,6 +245,7 @@ const LOGS = {
   addEmployee: ['peserta', (b) => `Menambah peserta ${clean(b.nama)} (NIK ${clean(b.nik)})`],
   updateEmployee: ['peserta', (b) => `Mengubah data peserta ${clean(b.nama)} (NIK ${clean(b.nik)})`],
   deleteEmployee: ['peserta', (b, r, c) => `Menghapus peserta ${nm(c)}`],
+  resetKupon: ['peserta', (b, r, c) => `Reset kupon ${nm(c)}` + (b.kupon_nama ? ` (${String(b.kupon_nama).slice(0, 40)})` : ' (semua kupon)') + `: ${r.removed} catatan dihapus`],
   resetPeserta: ['peserta', (b, r, c) => `Reset password peserta ${nm(c)}`],
   import: ['peserta', (b, r) => `Import Excel: ${r.imported} peserta` + (r.skipped ? `, ${r.skipped} dilewati` : '') + (r.duplicates ? `, ${r.duplicates} NIK ganda` : '')],
   exportEmployees: ['peserta', (b, r) => `Ekspor Excel (${r.rows?.length || 0} peserta)`],
@@ -277,7 +288,7 @@ export async function POST(req) {
   const ctx = lg ? await context(b) : null;
   try {
     const res = await h(b);
-    if (lg) await logAct(await actorOf(req), { kategori: lg[0], aksi: b.action, ringkas: lg[1](b, res, ctx) });
+    if (lg) { const ringkas = lg[1](b, res, ctx); after(async () => { await logAct(await actorOf(req), { kategori: lg[0], aksi: b.action, ringkas }); }); }
     return json(res);
   } catch (e) { return json({ error: e.message || 'Server error' }, 400); }
 }

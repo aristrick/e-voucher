@@ -74,3 +74,13 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - Jalankan `supabase/migration-v4.sql` sekali di SQL Editor Supabase. Ini membuat tabel `activity_log`. Tanpa tabel ini aplikasi tetap jalan, hanya halaman History yang kosong dan menampilkan petunjuk.
 - `/admin/history` mencatat: check-in dan redeem (berhasil maupun gagal, beserta nama panitia), perubahan peserta, panitia, kupon, hadiah, pengaturan, undian, dan tandai tidak hadir. Bisa dicari, difilter per kategori dan hasil, serta diperbarui otomatis tiap 5 detik. Password tidak pernah dicatat.
 - Suara dibuat dengan Web Audio (tanpa file audio): denting naik seperti Apple Pay saat scan berhasil, nada rendah saat gagal, desis awal dan bunyi "tak" tiap segmen saat roda berputar, dan fanfare saat pemenang muncul. Tombol Suara hidup/mati ada di `/staff` dan `/stage`. Browser baru memutar suara setelah layar disentuh sekali, jadi ketuk layar panitia satu kali setelah halaman dibuka.
+
+## Perubahan v5
+- Pengaturan: kartu Info acara lebih lebar dari Undian.
+- Skeleton loading di semua halaman (admin, scan, undian, halaman depan) dan garis kemajuan saat filter/halaman diganti.
+- Notifikasi (toast) dan dialog konfirmasi/isian bertema menggantikan popup bawaan browser.
+- Peserta > Reset: pilih reset password dan nomor HP, reset satu kupon, atau reset semua kupon. Tercatat di History.
+- Login peserta setelah aktivasi: cukup 4 angka terakhir nomor HP (nomor lengkap tetap diterima).
+- Tombol Klaim tiket saya dihapus dari halaman depan.
+- Menu History dipindah ke bawah, sebelum Pengaturan.
+- Scan lebih cepat: popup tidak lagi mengunci kamera, pembaca QR bawaan perangkat dipakai jika ada, jalur database dipangkas (check-in 1 query, redeem 2 query), dan pencatatan History berjalan setelah respons dikirim. Tidak ada migrasi baru.

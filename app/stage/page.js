@@ -89,7 +89,7 @@ export default function Stage() {
   const pieces = useMemo(() => Array.from({ length: 60 }, (_, i) => ({ left: Math.random() * 100 + '%', background: COLORS[i % 5], animationDuration: 2 + Math.random() * 2.5 + 's', animationDelay: Math.random() * 0.8 + 's' })), [boom]);
   const full = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
 
-  if (!d) return <div className="wrap">Memuat...{lerr && <p className="err">{lerr}</p>}</div>;
+  if (!d) return <div className="stage" role="status" aria-busy="true" aria-label="Memuat"><div><span className="sk" style={{ width: 'min(82vh,760px)', maxWidth: '100%', aspectRatio: '1/1', height: 'auto', borderRadius: '50%', margin: '0 auto' }} /></div><div>{lerr && <p className="err">{lerr}</p>}<div className="card"><span className="sk" style={{ width: '50%', height: 16 }} /><span className="sk" style={{ height: 44, marginTop: 12 }} /><span className="sk" style={{ height: 44, marginTop: 8 }} /><span className="sk" style={{ height: 60, marginTop: 12 }} /></div></div></div>;
   const cur = d.prizes.find((x) => String(x.id) === String(prize));
   const sisa = cur ? cur.stok - cur.won : 0;
   const sorted = [...d.prizes].sort((a, b) => (a.stok - a.won < 1) - (b.stok - b.won < 1));

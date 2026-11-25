@@ -7,11 +7,12 @@ export default function Staff() {
   const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
   const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false), [booth, setBooth] = useState('');
   const [isAdmin, setIsAdmin] = useState(false), [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState(''), [hist, setHist] = useState([]);
-  const busy = useRef(false), ref = useRef({}), timer = useRef(null);
+  const ref = useRef({}), timer = useRef(null);
   ref.current = { mode, coupon, booth };
 
   const [mute, setMute] = useState(false);
   useEffect(() => {
+    import('html5-qrcode').catch(() => {});   // muat pembaca QR lebih awal supaya kamera cepat siap
     setBooth(localStorage.getItem('booth') || ''); setMute(sfx.isMuted());
     // browser baru mengizinkan suara setelah layar disentuh sekali
     const u = () => sfx.unlock();
@@ -21,26 +22,33 @@ export default function Staff() {
   const toggleMute = () => { const m = !mute; sfx.setMuted(m); setMute(m); if (!m) sfx.success(); };
   const saveBooth = (v) => { setBooth(v); localStorage.setItem('booth', v); };
 
-  // tutup popup, lalu izinkan scan berikutnya (jeda singkat agar QR yang sama tidak terbaca ulang)
-  const release = () => {
-    clearTimeout(timer.current);
-    setRes(null);
-    setTimeout(() => { busy.current = false; }, 800);
-  };
+  // Penyebab scan terasa lambat sebelumnya: kamera tidak menerima QR baru selama popup terbuka (sampai 3,8 detik)
+  // dan tidak ada tanda apa pun selama menunggu server. Sekarang scan tidak pernah dikunci oleh popup:
+  // hanya QR yang sama persis ditahan 3 detik agar tidak terbaca berulang.
+  const [pending, setPending] = useState(false);
+  const inflight = useRef(0), last = useRef({ c: '', t: 0 });
+  const release = () => { clearTimeout(timer.current); setRes(null); };
   const show = (d) => {
     setRes(d);
     setHist((h) => [{ ...d, at: new Date().toISOString(), aksi: d.aksi || ref.current.mode }, ...h].slice(0, 10));
     navigator.vibrate?.(d.ok ? 80 : [80, 60, 80]);
     if (d.ok) sfx.success(); else sfx.fail();
     clearTimeout(timer.current);
-    timer.current = setTimeout(release, 3000);
+    timer.current = setTimeout(release, 1800);
   };
 
-  const act = async (c) => {
-    if (busy.current || !c) return;
-    busy.current = true;
+  const act = async (c, manual) => {
+    c = String(c || '').trim();
+    if (!c) return;
+    const now = Date.now();
+    if (!manual && last.current.c === c && now - last.current.t < 3000) return;
+    last.current = { c, t: now };
+    sfx.scan(); navigator.vibrate?.(20);   // tanda instan bahwa QR terbaca
+    inflight.current++; setPending(true);
     const r = await post('/api/staff', { action: ref.current.mode, code: c, coupon_id: Number(ref.current.coupon), booth: ref.current.booth });
+    inflight.current--; if (!inflight.current) setPending(false);
     if (r.status === 401) { location.href = '/login'; return; }
+    last.current.t = Date.now();
     show(r.status === 0 ? { ok: false, msg: 'Koneksi bermasalah, scan lagi' } : { ...r, ok: !!r.ok, msg: r.msg || r.error || 'Server bermasalah, scan lagi' });
   };
 
@@ -65,7 +73,13 @@ export default function Staff() {
       const { Html5Qrcode } = await import('html5-qrcode');
       if (dead) return;
       s = new Html5Qrcode('cam');
-      try { await s.start({ facingMode: 'environment' }, { fps: 10, qrbox: 220 }, (t) => act(t)); }
+      try {
+        await s.start({ facingMode: 'environment' }, {
+          fps: 24, disableFlip: true,
+          qrbox: (w, h) => { const m = Math.floor(Math.min(w, h) * 0.75); return { width: m, height: m }; },
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },   // pakai pembaca QR bawaan perangkat jika ada (jauh lebih cepat)
+        }, (t) => act(t));
+      }
       catch { setCamErr('Kamera tidak bisa dibuka. Pakai input manual di bawah.'); }
       if (dead) { try { if (s.isScanning) await s.stop(); } catch {} }
     })();
@@ -73,9 +87,9 @@ export default function Staff() {
   }, [on]);
 
   const out = async () => { await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
-  const manual = () => { act(code); setCode(''); };
+  const manual = () => { act(code, true); setCode(''); };
 
-  if (!on) return <div className="wrap">Memuat...{loadErr && <div className="err">{loadErr}. Mencoba lagi...</div>}</div>;
+  if (!on) return <div className="wrap" role="status" aria-busy="true" aria-label="Memuat">{loadErr && <div className="err">{loadErr}. Mencoba lagi...</div>}<span className="sk" style={{ height: 52, borderRadius: 12 }} /><span className="sk" style={{ height: 300, marginTop: 14, borderRadius: 12 }} /><span className="sk" style={{ height: 52, marginTop: 14, borderRadius: 12 }} /></div>;
   const okCount = hist.filter((h) => h.ok).length;
   return (
     <div className="wrap">
@@ -96,7 +110,7 @@ export default function Staff() {
           : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>}
         <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />
       </>}
-      <div id="cam" />
+      <div style={{ position: 'relative' }}><div id="cam" />{pending && <div className="scanning" role="status">Memproses...</div>}</div>
       {camErr && <div className="err">{camErr}</div>}
       <div className="card" style={{ marginTop: 16 }}>
         <input aria-label="NIK atau kode tiket" placeholder="Kamera gagal? Ketik NIK atau kode tiket" value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && manual()} />

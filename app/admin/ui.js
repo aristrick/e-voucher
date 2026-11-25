@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { adm } from '@/lib/client';
 
 // Muat data dari /api/admin. Kalau gagal sebelum ada data, otomatis coba lagi tiap 3 detik.
@@ -27,16 +27,71 @@ export function useLoad(body, every = 0) {
   return { data, err, loading, reload };
 }
 
-// Jalankan aksi admin dan tampilkan hasilnya sebagai pesan
+// ---------- notifikasi (toast) dan dialog konfirmasi/isian sesuai tema, pengganti popup bawaan browser ----------
+const UICtx = createContext(null);
+export const useUI = () => useContext(UICtx) || { toast: () => {}, ask: async () => true, askText: async () => null };
+let seq = 0;
+export function UIProvider({ children }) {
+  const [toasts, setToasts] = useState([]), [dlg, setDlg] = useState(null);
+  const dismiss = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const toast = useCallback((type, text) => {
+    const id = ++seq;
+    setToasts((t) => [...t.slice(-3), { id, type, text }]);
+    setTimeout(() => dismiss(id), type === 'err' ? 6500 : 3500);
+  }, [dismiss]);
+  const ask = useCallback((message, o = {}) => new Promise((res) => setDlg({ kind: 'confirm', message, ...o, res })), []);
+  const askText = useCallback((message, o = {}) => new Promise((res) => setDlg({ kind: 'prompt', message, ...o, res })), []);
+  const close = (v) => { dlg?.res(v); setDlg(null); };
+  return (
+    <UICtx.Provider value={{ toast, ask, askText }}>
+      {children}
+      <div className="toasts" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={'toast-item ' + t.type} role={t.type === 'err' ? 'alert' : 'status'} onClick={() => dismiss(t.id)}>
+            <span className="ti">{t.type === 'err' ? '✕' : '✓'}</span><span>{t.text}</span>
+          </div>))}
+      </div>
+      {dlg && <Dialog d={dlg} close={close} />}
+    </UICtx.Provider>
+  );
+}
+function Dialog({ d, close }) {
+  const [v, setV] = useState(d.value || ''), ok = useRef(null);
+  const prompt = d.kind === 'prompt';
+  const cancel = () => close(prompt ? null : false), yes = () => close(prompt ? v : true);
+  useEffect(() => {
+    const k = (e) => { if (e.key === 'Escape') cancel(); };
+    document.addEventListener('keydown', k); return () => document.removeEventListener('keydown', k);
+  });
+  useEffect(() => { if (!prompt) ok.current?.focus(); }, [prompt]);
+  const danger = d.danger ?? /^Hapus/i.test(d.message);
+  return (
+    <div className="pop dlg" onMouseDown={(e) => e.target === e.currentTarget && cancel()}>
+      <div className="pop-box modal" role="alertdialog" aria-modal="true" aria-label={d.title || 'Konfirmasi'} style={{ maxWidth: 440 }}>
+        <div className="dlg-ic" data-danger={danger ? '1' : '0'}>{prompt ? '✎' : danger ? '!' : '?'}</div>
+        <h2 style={{ marginBottom: 6 }}>{d.title || (prompt ? 'Isi data' : danger ? 'Hapus data?' : 'Konfirmasi')}</h2>
+        <p style={{ margin: '0 0 14px' }}>{d.message}</p>
+        {prompt && <input autoFocus value={v} onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && v.trim() && yes()} />}
+        <div className="gap" style={{ justifyContent: 'flex-end', marginTop: 8 }}>
+          <button className="btn w" onClick={cancel}>Batal</button>
+          <button ref={ok} className={'btn ' + (danger ? 'r' : 'g')} disabled={prompt && !v.trim()} onClick={yes}>{d.okText || (prompt ? 'Simpan' : danger ? 'Ya, hapus' : 'Lanjutkan')}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Jalankan aksi admin: berhasil atau gagal ditampilkan sebagai notifikasi
+const NoMsg = () => null;
 export function useAct(after) {
-  const [msg, setMsg] = useState(null);
+  const { toast } = useUI();
+  const setMsg = (m) => { if (m) toast(m.ok ? 'ok' : 'err', m.t); };
   const run = async (body, okText) => {
     const r = await adm(body);
-    if (r.ok) { setMsg(okText ? { ok: true, t: okText } : null); await after?.(r); } else setMsg({ ok: false, t: r.error });
+    if (r.ok) { if (okText) toast('ok', okText); await after?.(r); } else toast('err', r.error || 'Terjadi kesalahan');
     return r;
   };
-  const Msg = () => msg ? <div className={msg.ok ? 'good' : 'err'} onClick={() => setMsg(null)}>{msg.t}</div> : null;
-  return { run, Msg, setMsg };
+  return { run, Msg: NoMsg, setMsg };
 }
 
 export function Modal({ title, onClose, children }) {
@@ -69,5 +124,41 @@ export function Pager({ page, size, total, onPage }) {
   );
 }
 
-export const Loading = ({ err }) => <div className="card">{err ? <div className="err">{err.replace(/\.$/, '')}. Mencoba lagi...</div> : 'Memuat...'}</div>;
+// ---------- skeleton loading ----------
+const W = ['62%', '40%', '78%', '30%', '55%', '70%'];
+const Bar = ({ w = '100%', h = 14, style }) => <span className="sk" style={{ width: w, height: h, ...style }} />;
+function SkTable({ rows = 8, cols = 5 }) {
+  return (
+    <div className="tw" aria-hidden="true">
+      <div className="sk-head">{Array.from({ length: cols }, (_, i) => <Bar key={i} w={['18%', '12%', '14%', '16%', '10%'][i % 5]} h={12} />)}</div>
+      {Array.from({ length: rows }, (_, r) => (
+        <div className="sk-row" key={r}>{Array.from({ length: cols }, (_, i) => <Bar key={i} w={W[(r + i) % W.length]} h={i === 0 ? 16 : 13} />)}</div>))}
+    </div>
+  );
+}
+function SkCards() {
+  return (
+    <div aria-hidden="true">
+      <div className="stats">{[0, 1, 2, 3].map((i) => <div className="card" key={i}><Bar w="42%" h={38} /><Bar w="60%" h={14} /></div>)}</div>
+      <div className="cols cols-3">{[0, 1, 2].map((i) => <div className="card" key={i}><Bar w="45%" h={20} />{[0, 1, 2, 3].map((j) => <div key={j} style={{ marginTop: 16 }}><Bar w={W[(i + j) % W.length]} h={13} /><Bar h={16} style={{ marginTop: 8 }} /></div>)}</div>)}</div>
+    </div>
+  );
+}
+function SkForm() {
+  return (
+    <div className="split" aria-hidden="true">
+      <div className="card"><Bar w="30%" h={22} />{[0, 1, 2, 3].map((i) => <div key={i} style={{ marginTop: 18 }}><Bar w="22%" h={12} /><Bar h={44} style={{ marginTop: 8 }} /></div>)}</div>
+      <div className="card"><Bar w="40%" h={22} /><Bar w="50%" h={12} style={{ marginTop: 18 }} /><Bar h={44} style={{ marginTop: 8 }} /><Bar h={40} w="50%" style={{ marginTop: 22 }} /></div>
+    </div>
+  );
+}
+export const Skeleton = ({ kind = 'table', rows, cols }) => kind === 'cards' ? <SkCards /> : kind === 'form' ? <SkForm /> : <SkTable rows={rows} cols={cols} />;
+export const Loading = ({ err, kind = 'table', rows, cols }) => (
+  <div role="status" aria-busy="true" aria-label="Memuat data">
+    {err && <div className="err">{err.replace(/\.$/, '')}. Mencoba lagi...</div>}
+    <Skeleton kind={kind} rows={rows} cols={cols} />
+  </div>
+);
+// garis kemajuan tipis di atas halaman saat data dimuat ulang (filter, ganti halaman)
+export const Busy = ({ on }) => (on ? <div className="topbar" aria-hidden="true" /> : null);
 export const Title = ({ children, right }) => <div className="ptitle"><h1>{children}</h1><div className="gap">{right}</div></div>;

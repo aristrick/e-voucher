@@ -48,7 +48,8 @@ export default function Home() {
   };
   const submit = async () => {
     const hpNeeded = !info.activated || info.hp_required;
-    if (hpNeeded && f.hp.replace(/\D/g, '').length < 9) return setErr('Isi nomor HP yang valid, contoh 081234567890');
+    if (hpNeeded && info.activated && f.hp.replace(/\D/g, '').length !== 4) return setErr('Isi 4 angka terakhir nomor HP kamu');
+    if (hpNeeded && !info.activated && f.hp.replace(/\D/g, '').length < 9) return setErr('Isi nomor HP yang valid, contoh 081234567890');
     if (!f.pw || (!info.activated && f.pw.length < 6)) return setErr(info.activated ? 'Isi password' : 'Password minimal 6 karakter');
     if (!info.activated && f.pw !== f.pw2) return setErr('Ulangi password dengan sama persis');
     setBusy(true); setErr('');
@@ -58,7 +59,7 @@ export default function Home() {
   };
   const out = async () => { await post('/api/auth', { action: 'logout' }); localStorage.removeItem('tiket'); last.current = null; setT(null); setStep(1); };
 
-  if (!t && !ready) return <div className="wrap">Memuat...</div>;
+  if (!t && !ready) return <div className="wrap" role="status" aria-busy="true" aria-label="Memuat"><div className="card"><span className="sk" style={{ width: '40%', height: 18 }} /><span className="sk" style={{ height: 52, marginTop: 14 }} /><span className="sk" style={{ width: '70%', height: 14 }} /></div><div className="card"><span className="sk" style={{ width: '50%', height: 22 }} /><span className="sk" style={{ height: 180, marginTop: 14 }} /></div></div>;
   const e = ev?.event || {};
 
   /* ---------- sudah punya tiket ---------- */
@@ -136,7 +137,6 @@ export default function Home() {
                 <li>Akses masuk lewat scan QR</li>
                 {perks.map((p) => <li key={p}>{p}</li>)}
               </ul>
-              <a className="btn block" href="#klaim">Klaim tiket saya</a>
             </div>
           </div>
         </div>
@@ -161,8 +161,10 @@ export default function Home() {
               <h2>{info.activated ? 'Masuk ke tiketmu' : 'Aktifkan tiketmu'}</h2>
               <div className="good" style={{ background: 'var(--yellow)' }}>Atas nama {info.nama}</div>
               {(!info.activated || info.hp_required) && <>
-                <label className="lbl" htmlFor="hp">{info.activated ? 'Nomor HP (yang kamu isi saat membuat password)' : 'Nomor HP aktif'}</label>
-                <input id="hp" placeholder="081234567890" inputMode="tel" autoComplete="tel" value={f.hp} onChange={set('hp')} />
+                <label className="lbl" htmlFor="hp">{info.activated ? '4 angka terakhir nomor HP (yang kamu isi saat membuat password)' : 'Nomor HP aktif'}</label>
+                {info.activated
+                  ? <input id="hp" placeholder="Contoh: 7890" inputMode="numeric" maxLength={4} autoComplete="off" value={f.hp} onChange={(e) => setF({ ...f, hp: e.target.value.replace(/\D/g, '').slice(0, 4) })} />
+                  : <input id="hp" placeholder="081234567890" inputMode="tel" autoComplete="tel" value={f.hp} onChange={set('hp')} />}
               </>}
               <label className="lbl" htmlFor="pw">{info.activated ? 'Password' : 'Buat password (min. 6 karakter)'}</label>
               <input id="pw" type="password" autoComplete={info.activated ? 'current-password' : 'new-password'} value={f.pw} onChange={set('pw')} onKeyDown={(x) => x.key === 'Enter' && info.activated && submit()} />
@@ -180,7 +182,7 @@ export default function Home() {
           <div className="card"><h2>Cara klaim</h2>
             <ol style={{ paddingLeft: 20, margin: 0 }}>
               <li>Masukkan NIK kamu.</li>
-              <li>Isi nomor HP kamu dan buat password. Nomor ini dipakai lagi saat kamu masuk berikutnya.</li>
+              <li>Isi nomor HP kamu dan buat password. Saat masuk berikutnya cukup isi 4 angka terakhir nomor HP.</li>
               <li>Tiket QR terbit. Tunjukkan ke panitia di pintu masuk.</li>
             </ol>
             <p className="mute">Tiket terbit setelah kamu membuat password. Check-in baru tercatat saat panitia memindai QR tiketmu di pintu masuk.</p>

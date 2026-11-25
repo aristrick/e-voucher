@@ -1,7 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { useLoad, useAct, Modal, Loading, Title } from '../ui';
+import { useLoad, useAct, Modal, Loading, Title, useUI } from '../ui';
 export default function Hadiah() {
+  const { ask } = useUI();
   const { data: d, err, reload } = useLoad({ action: 'prizes' });
   const { run, Msg } = useAct(() => reload(true));
   const [f, setF] = useState({ nama: '', stok: 1 }), [ed, setEd] = useState(null);
@@ -17,7 +18,7 @@ export default function Hadiah() {
           <div className="sm"><label className="lbl" htmlFor="ps">Jumlah</label><input id="ps" type="number" min="1" value={f.stok} onChange={(e) => setF({ ...f, stok: e.target.value })} /></div>
           <button className="btn" onClick={add}>Tambah</button></div>
       </div>
-      {!d ? <Loading err={err} /> : d.prizes.length === 0 ? <div className="card empty">Belum ada hadiah.</div> : (
+      {!d ? <Loading err={err} cols={5} rows={5} /> : d.prizes.length === 0 ? <div className="card empty">Belum ada hadiah.</div> : (
         <div className="tw stick"><table className="rt">
           <thead><tr><th>Hadiah</th><th>Jumlah</th><th>Sudah diundi</th><th>Sisa</th><th className="act">Aksi</th></tr></thead>
           <tbody>{d.prizes.map((p) => (
@@ -25,7 +26,7 @@ export default function Hadiah() {
               <td data-label="Sisa"><span className={'chip' + (p.stok - p.won > 0 ? '' : ' no')}>{Math.max(p.stok - p.won, 0)}</span></td>
               <td className="act"><span className="acts">
                 <button className="btn sm y" onClick={() => setEd({ id: p.id, nama: p.nama, stok: p.stok })}>Ubah</button>
-                <button className="btn sm r" onClick={() => confirm(`Hapus hadiah ${p.nama}?` + (p.won ? ` ${p.won} pemenangnya ikut terhapus.` : '')) && run({ action: 'deletePrize', id: p.id }, 'Hadiah dihapus')}>Hapus</button>
+                <button className="btn sm r" onClick={async () => (await ask(`Hapus hadiah ${p.nama}?` + (p.won ? ` ${p.won} pemenangnya ikut terhapus.` : ''))) && run({ action: 'deletePrize', id: p.id }, 'Hadiah dihapus')}>Hapus</button>
               </span></td></tr>))}
           </tbody></table></div>
       )}

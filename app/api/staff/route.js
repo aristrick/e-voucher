@@ -1,76 +1,85 @@
+import { after } from 'next/server';
 import { db, role, json } from '@/lib/db';
 import { actorOf, logAct } from '@/lib/log';
 export const dynamic = 'force-dynamic';
 
-async function handle(req) {
+// Dibuat secepat mungkin: scan berhasil hanya butuh 1 kali ke database (check-in) atau 2 kali (redeem).
+// Pencatatan riwayat berjalan SETELAH respons dikirim, jadi tidak menambah waktu tunggu panitia.
+async function handle(req, b) {
   const who0 = await role(req);
-  if (!who0) return json({ error: 'Belum login' }, 401);
+  if (!who0) return [json({ error: 'Belum login' }, 401)];
   try {
-    const { action, code, coupon_id, booth } = await req.json();
+    const { action, code, coupon_id, booth } = b;
 
     if (action === 'coupons') {
       const { data, error } = await db.from('coupon_types').select('id,nama').order('urutan').order('id');
-      if (error) return json({ error: error.message }, 500);
-      return json({ coupons: data || [], role: who0 });
+      if (error) return [json({ error: error.message }, 500)];
+      return [json({ coupons: data || [], role: who0 })];
     }
 
     // QR berisi token; panitia juga boleh mengetik NIK atau kode tiket (dengan atau tanpa strip)
     const c = String(code || '').replace(/[^\w]/g, '');
-    if (!c) return json({ ok: false, msg: 'Kode kosong' });
-
-    const { data: e, error: ee } = await db.from('employees')
-      .select('id,nama,nik,cabang,checked_in_at').or(`token.eq.${c.toLowerCase()},nik.eq.${c}`).maybeSingle();
-    if (ee) return json({ ok: false, msg: ee.message }, 500);
-    if (!e) return json({ ok: false, msg: 'Tiket tidak dikenal' });
-    const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '' };
+    if (!c) return [json({ ok: false, msg: 'Kode kosong' })];
+    const match = `token.eq.${c.toLowerCase()},nik.eq.${c}`;
+    const R = (d, s) => [json(d, s), d];
 
     if (action === 'checkin') {
-      if (e.checked_in_at) return json({ ok: false, aksi: 'checkin', ...who, at: e.checked_in_at, msg: 'Sudah check-in sebelumnya' });
-      // update bersyarat: kalau dua HP scan bersamaan, hanya satu yang berhasil
+      // jalur cepat: satu update bersyarat (hanya berhasil jika belum check-in), langsung mengembalikan data peserta
       const now = new Date().toISOString();
-      const { data: up, error } = await db.from('employees').update({ checked_in_at: now })
-        .eq('id', e.id).is('checked_in_at', null).select('id');
-      if (error) return json({ ok: false, aksi: 'checkin', ...who, msg: error.message }, 500);
-      if (!up?.length) return json({ ok: false, aksi: 'checkin', ...who, msg: 'Sudah check-in sebelumnya' });
-      return json({ ok: true, aksi: 'checkin', ...who, at: now, msg: 'Check-in berhasil' });
+      const up = await db.from('employees').update({ checked_in_at: now }).or(match).is('checked_in_at', null).select('nama,nik,cabang');
+      if (up.error) return R({ ok: false, aksi: 'checkin', msg: up.error.message }, 500);
+      if (up.data?.length === 1) {
+        const e = up.data[0];
+        return R({ ok: true, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', at: now, msg: 'Check-in berhasil' });
+      }
+      // tidak ada baris yang berubah: tiket tidak dikenal atau sudah check-in
+      const { data: e } = await db.from('employees').select('nama,nik,cabang,checked_in_at').or(match).maybeSingle();
+      if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
+      return R({ ok: false, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', at: e.checked_in_at, msg: 'Sudah check-in sebelumnya' });
     }
 
-    if (action !== 'redeem') return json({ ok: false, msg: 'Aksi tidak dikenal' }, 400);
-    if (!e.checked_in_at) return json({ ok: false, aksi: 'redeem', ...who, msg: 'Belum check-in di pintu masuk' });
+    if (action !== 'redeem') return [json({ ok: false, msg: 'Aksi tidak dikenal' }, 400)];
     const cid = Number(coupon_id);
-    if (!cid) return json({ ok: false, aksi: 'redeem', ...who, msg: 'Pilih kupon dulu' });
-    const { data: cp } = await db.from('coupon_types').select('id,nama').eq('id', cid).maybeSingle();
-    if (!cp) return json({ ok: false, aksi: 'redeem', ...who, msg: 'Kupon tidak ditemukan' });
+    // peserta dan kupon dicari bersamaan, bukan berurutan
+    const [pe, pc] = await Promise.all([
+      db.from('employees').select('id,nama,nik,cabang,checked_in_at').or(match).maybeSingle(),
+      cid ? db.from('coupon_types').select('id,nama').eq('id', cid).maybeSingle() : Promise.resolve({ data: null }),
+    ]);
+    if (pe.error) return R({ ok: false, msg: pe.error.message }, 500);
+    const e = pe.data;
+    if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
+    const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '' };
+    if (!e.checked_in_at) return R({ ok: false, aksi: 'redeem', ...who, msg: 'Belum check-in di pintu masuk' });
+    if (!cid) return R({ ok: false, aksi: 'redeem', ...who, msg: 'Pilih kupon dulu' });
+    const cp = pc.data;
+    if (!cp) return R({ ok: false, aksi: 'redeem', ...who, msg: 'Kupon tidak ditemukan' });
 
     const { data: ins, error } = await db.from('redemptions').insert({ employee_id: e.id, coupon_type_id: cid, booth: String(booth || '').slice(0, 40) || null }).select('created_at').single();
     if (error) {
       if (error.code === '23505') {
         const { data: old } = await db.from('redemptions').select('created_at').eq('employee_id', e.id).eq('coupon_type_id', cid).maybeSingle();
-        return json({ ok: false, aksi: 'redeem', ...who, kupon: cp.nama, at: old?.created_at, msg: `Kupon ${cp.nama} sudah dipakai` });
+        return R({ ok: false, aksi: 'redeem', ...who, kupon: cp.nama, at: old?.created_at, msg: `Kupon ${cp.nama} sudah dipakai` });
       }
-      return json({ ok: false, aksi: 'redeem', ...who, kupon: cp.nama, msg: error.message });
+      return R({ ok: false, aksi: 'redeem', ...who, kupon: cp.nama, msg: error.message });
     }
-    return json({ ok: true, aksi: 'redeem', ...who, kupon: cp.nama, at: ins.created_at, msg: `Kupon ${cp.nama} berhasil ditukar` });
+    return R({ ok: true, aksi: 'redeem', ...who, kupon: cp.nama, at: ins.created_at, msg: `Kupon ${cp.nama} berhasil ditukar` });
   } catch (err) {
-    return json({ ok: false, msg: 'Server error: ' + (err?.message || 'tidak diketahui') }, 500);
+    return [json({ ok: false, msg: 'Server error: ' + (err?.message || 'tidak diketahui') }, 500)];
   }
 }
 
-// Tiap scan (berhasil maupun gagal) dicatat ke riwayat
 export async function POST(req) {
-  let act = '', booth = '';
-  try { const b = await req.clone().json(); act = b.action; booth = String(b.booth || '').slice(0, 40); } catch {}
-  const res = await handle(req);
-  if (act === 'checkin' || act === 'redeem') {
-    try {
-      const j = await res.clone().json();
-      const nama = j.nama || '';
-      const what = act === 'checkin' ? 'Check-in' : 'Redeem' + (j.kupon ? ' ' + j.kupon : '');
-      const ringkas = j.ok
-        ? `${what} ${nama}` + (act === 'redeem' && booth ? ` (booth ${booth})` : '')
-        : `${what} gagal${nama ? ' · ' + nama : ''}: ${j.msg || 'tidak diketahui'}`;
-      await logAct(await actorOf(req), { kategori: act, aksi: act, ringkas, ok: !!j.ok, detail: { nik: j.nik || null, kupon: j.kupon || null, booth: booth || null } });
-    } catch {}
+  let b; try { b = await req.json(); } catch { return json({ ok: false, msg: 'Request tidak valid' }, 400); }
+  const [res, d] = await handle(req, b);
+  if (d && (b.action === 'checkin' || b.action === 'redeem')) {
+    const booth = String(b.booth || '').slice(0, 40);
+    after(async () => {
+      const what = b.action === 'checkin' ? 'Check-in' : 'Redeem' + (d.kupon ? ' ' + d.kupon : '');
+      const ringkas = d.ok
+        ? `${what} ${d.nama}` + (b.action === 'redeem' && booth ? ` (booth ${booth})` : '')
+        : `${what} gagal${d.nama ? ' · ' + d.nama : ''}: ${d.msg || 'tidak diketahui'}`;
+      await logAct(await actorOf(req), { kategori: b.action, aksi: b.action, ringkas, ok: !!d.ok, detail: { nik: d.nik || null, kupon: d.kupon || null, booth: booth || null } });
+    });
   }
   return res;
 }

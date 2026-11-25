@@ -4,7 +4,7 @@ import { fmtDateTime, fmtTime } from '@/lib/client';
 const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 export default function Ringkasan() {
   const { data: d, err, reload } = useLoad({ action: 'overview' }, 10000);
-  if (!d) return <Loading err={err} />;
+  if (!d) return <><Title>Ringkasan</Title><Loading err={err} kind="cards" /></>;
   return (
     <>
       <Title right={<><span className="live">Otomatis diperbarui</span><button className="btn sm b" onClick={() => reload()}>Segarkan</button></>}>Ringkasan</Title>

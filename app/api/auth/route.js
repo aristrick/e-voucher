@@ -57,8 +57,10 @@ export async function POST(req) {
     return ok({ t: 'peserta', id: e.id });
   }
 
-  const hpOk = !!e && (!e.hp || phone(b.hp) === phone(e.hp));
-  if (!e || !hpOk || !check(String(b.password || ''), e.pass_hash)) { if (e) await fail('employees', e); return json({ error: 'NIK, nomor HP, atau password salah' }, 401); }
+  // setelah mendaftar, peserta cukup mengisi 4 angka terakhir nomor HP (nomor lengkap tetap diterima)
+  const dig = String(b.hp || '').replace(/\D/g, '');
+  const hpOk = !!e && (!e.hp || (dig.length === 4 ? phone(e.hp).endsWith(dig) : phone(b.hp) === phone(e.hp)));
+  if (!e || !hpOk || !check(String(b.password || ''), e.pass_hash)) { if (e) await fail('employees', e); return json({ error: 'NIK, 4 angka terakhir HP, atau password salah' }, 401); }
   await good('employees', e);
   return ok({ t: 'peserta', id: e.id });
 }

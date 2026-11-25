@@ -89,5 +89,5 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - WAJIB: jalankan `supabase/migration-v6.sql` sekali di SQL Editor Supabase sebelum memakai versi ini. Isinya menambah kolom `divisi` pada tabel peserta. Tanpa ini check-in dan halaman peserta error.
 - Peserta punya Divisi selain Cabang: form tambah/ubah, tabel peserta, pencarian, import dan ekspor Excel (kolom Divisi; judul "Devisi" juga dikenali), e-tiket, popup scan, layar undian, dan halaman Pemenang. File Excel lama tanpa kolom Divisi tetap bisa diimpor, tetapi mengosongkan Divisi peserta dengan NIK yang sama.
 - Peserta > Reset > Undian: hapus satu catatan undian atau semua catatan undian peserta. Stok hadiah kembali dan peserta (termasuk yang pernah ditandai tidak hadir) bisa diundi lagi. Tercatat di History.
-- Kamera scan: fokus otomatis terus-menerus, resolusi 720p, dan area baca lebih luas (90% layar kamera).
+- Kamera scan: fokus otomatis terus-menerus dan resolusi 720p. Tampilan dirapikan: kamera persegi (tinggi dibatasi), bingkai dengan garis scan, label mode (Check-in / Redeem + nama kupon), tulisan "Menyalakan kamera...", dan tombol Senter jika perangkat mendukung (tidak ada di iPhone).
 - Tanda "Setia Kawan Project by Aris Setiawan" di paling bawah semua halaman.

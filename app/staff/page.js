@@ -6,8 +6,9 @@ import * as sfx from '@/lib/sound';
 export default function Staff() {
   const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
   const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false), [booth, setBooth] = useState('');
+  const [camReady, setCamReady] = useState(false), [torchOk, setTorchOk] = useState(false), [torch, setTorch] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false), [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState(''), [hist, setHist] = useState([]);
-  const ref = useRef({}), timer = useRef(null);
+  const ref = useRef({}), timer = useRef(null), sc = useRef(null);
   ref.current = { mode, coupon, booth };
 
   const [mute, setMute] = useState(false);
@@ -72,15 +73,15 @@ export default function Staff() {
     (async () => {
       const { Html5Qrcode } = await import('html5-qrcode');
       if (dead) return;
-      s = new Html5Qrcode('cam');
+      s = new Html5Qrcode('cam'); sc.current = s;
       try {
         await s.start({ facingMode: 'environment' }, {
           fps: 24, disableFlip: true,
           // Kamera belakang dengan fokus otomatis terus-menerus dan resolusi 720p: QR tidak perlu menunggu fokus ulang dan tetap tajam
           videoConstraints: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 }, advanced: [{ focusMode: 'continuous' }] },
-          qrbox: (w, h) => { const m = Math.floor(Math.min(w, h) * 0.9); return { width: m, height: m }; },   // area baca lebih luas
           experimentalFeatures: { useBarCodeDetectorIfSupported: true },   // pakai pembaca QR bawaan perangkat jika ada (jauh lebih cepat)
         }, (t) => act(t));
+        if (!dead) { setCamReady(true); try { setTorchOk(!!s.getRunningTrackCameraCapabilities().torchFeature().isSupported()); } catch {} }
       }
       catch { setCamErr('Kamera tidak bisa dibuka. Pakai input manual di bawah.'); }
       if (dead) { try { if (s.isScanning) await s.stop(); } catch {} }
@@ -88,6 +89,7 @@ export default function Staff() {
     return () => { dead = true; try { if (s && s.isScanning) s.stop().catch(() => {}); } catch {} };
   }, [on]);
 
+  const toggleTorch = async () => { try { await sc.current.getRunningTrackCameraCapabilities().torchFeature().apply(!torch); setTorch(!torch); } catch {} };
   const out = async () => { await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
   const manual = () => { act(code, true); setCode(''); };
 
@@ -112,7 +114,17 @@ export default function Staff() {
           : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>}
         <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />
       </>}
-      <div style={{ position: 'relative' }}><div id="cam" />{pending && <div className="scanning" role="status">Memproses...</div>}</div>
+      {!camErr && <>
+        <div className="camwrap">
+          <div id="cam" />
+          {camReady && <div className="scan-frame" aria-hidden="true"><i /><i /><i /><i /></div>}
+          <span className="cam-mode">{mode === 'checkin' ? 'Check-in' : 'Redeem' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
+          {!camReady && <div className="cam-load" role="status">Menyalakan kamera...</div>}
+          {torchOk && <button type="button" className="btn sm w torch" onClick={toggleTorch} aria-pressed={torch}>{torch ? 'Senter mati' : 'Senter'}</button>}
+          {pending && <div className="scanning" role="status">Memproses...</div>}
+        </div>
+        <p className="mute" style={{ textAlign: 'center', margin: '8px 0 0' }}>Arahkan QR ke dalam bingkai, jarak sekitar 15 sampai 25 cm</p>
+      </>}
       {camErr && <div className="err">{camErr}</div>}
       <div className="card" style={{ marginTop: 16 }}>
         <input aria-label="NIK atau kode tiket" placeholder="Kamera gagal? Ketik NIK atau kode tiket" value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && manual()} />

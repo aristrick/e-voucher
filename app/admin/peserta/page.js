@@ -11,7 +11,8 @@ export default function Peserta() {
   const { ask, askText } = useUI();
   const [q, setQ] = useState(''), [qq, setQq] = useState(''), [status, setStatus] = useState(''), [page, setPage] = useState(1);
   const [imp, setImp] = useState(false), [rows, setRows] = useState([]), [fname, setFname] = useState(''), [ferr, setFerr] = useState('');
-  const [form, setForm] = useState(null), [busy, setBusy] = useState(false), [rs, setRs] = useState(null);
+  const [form, setForm] = useState(null), [busy, setBusy] = useState(false), [rs, setRs] = useState(null), [kp, setKp] = useState(null);
+  const { data: cd } = useLoad({ action: 'coupons' });
   useEffect(() => { const t = setTimeout(() => { setQq(q); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);
   const { data: d, err, reload, loading } = useLoad({ action: 'employees', q: qq, status, page, size: SIZE });
   const { run, Msg, setMsg } = useAct(() => reload(true));
@@ -83,6 +84,7 @@ export default function Peserta() {
                   : <span className="chip warn">Belum aktivasi</span>}</td>
                 <td className="act"><span className="acts">
                   {!e.checked_in_at && <button className="btn sm g" onClick={async () => (await ask(`Check-in manual untuk ${e.nama}? Waktu check-in dicatat sekarang.`, { title: 'Check-in manual', okText: 'Check-in' })) && run({ action: 'checkinManual', nik: e.nik }, `${e.nama} berhasil check-in`)}>Check-in</button>}
+                  {(e.checked_in_at || e.kupon.length > 0) && <button className="btn sm b" onClick={() => { setMsg(null); setKp(e); }}>Kupon</button>}
                   <button className="btn sm y" onClick={() => { setMsg(null); setForm({ id: e.id, nik: e.nik, nama: e.nama, divisi: e.divisi || '', cabang: e.cabang || '', max_hadiah: e.max_hadiah || '' }); }}>Ubah</button>
                   {(e.aktif || e.checked_in_at || e.kupon.length > 0 || e.undian.length > 0) && <button className="btn sm w" onClick={() => setRs(e)}>Reset</button>}
                   <button className="btn sm r" onClick={async () => (await ask(`Hapus ${e.nama}? Riwayat kupon dan undian peserta ini ikut terhapus.`)) && run({ action: 'deleteEmployee', nik: e.nik }, 'Peserta dihapus')}>Hapus</button>
@@ -92,6 +94,24 @@ export default function Peserta() {
         )}
         <Pager page={d.page} size={d.size} total={d.total} onPage={setPage} />
       </>}
+
+      {kp && (() => {
+        const e = d?.rows.find((x) => x.id === kp.id) || kp;   // data terbaru setelah tiap perubahan
+        const all = cd?.coupons || [], got = new Set(e.kupon.map((k) => k.id)), free = all.filter((c) => !got.has(c.id));
+        const tukar = async (c) => (await ask(`Tukarkan kupon ${c.nama} untuk ${e.nama} secara manual? Waktu penukaran dicatat sekarang.`, { title: 'Tukar kupon manual', okText: 'Tukarkan' })) && run({ action: 'redeemManual', nik: e.nik, coupon_id: c.id, kupon_nama: c.nama }, `Kupon ${c.nama} ditukar`);
+        const ubah = async (k, t) => (await ask(`Ubah kupon ${k.nama} milik ${e.nama} menjadi ${t.nama}? Waktu penukaran tetap sama.`, { title: 'Ubah kupon?', okText: 'Ya, ubah' })) && run({ action: 'changeKupon', nik: e.nik, from_id: k.id, to_id: t.id, dari_nama: k.nama, ke_nama: t.nama }, `Kupon diubah menjadi ${t.nama}`);
+        return <Modal title={'Kupon ' + e.nama} onClose={() => setKp(null)}>
+          <Msg />
+          <h3 style={{ marginTop: 0 }}>Tukar manual</h3>
+          {!e.checked_in_at ? <div className="mute">Peserta belum check-in. Check-in dulu sebelum menukar kupon.</div>
+            : free.length === 0 ? <div className="mute">Semua kupon sudah ditukar.</div>
+            : free.map((c) => <button key={c.id} className="opt" onClick={() => tukar(c)}><b>Tukarkan {c.nama}</b><span>Dicatat sebagai Admin (manual)</span></button>)}
+          <h3 style={{ marginTop: 14 }}>Salah kupon? Ubah</h3>
+          {e.kupon.length === 0 ? <div className="mute">Belum ada kupon yang ditukar.</div>
+            : free.length === 0 ? <div className="mute">Tidak ada kupon tujuan yang tersedia (peserta sudah menukar semua kupon).</div>
+            : e.kupon.flatMap((k) => free.map((t) => <button key={k.id + '-' + t.id} className="opt" onClick={() => ubah(k, t)}><b>{k.nama} menjadi {t.nama}</b><span>Ditukar {fmtFull(k.at)}</span></button>))}
+        </Modal>;
+      })()}
 
       {rs && (() => {
         const e = d?.rows.find((x) => x.id === rs.id) || rs;   // data terbaru setelah tiap reset

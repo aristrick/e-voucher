@@ -125,6 +125,31 @@ const H = {
     must(await db.from('employees').update({ checked_in_at: iso() }).eq('id', e.id).is('checked_in_at', null));
     return {};
   },
+  // tukar kupon secara manual oleh admin (sama seperti redeem panitia, booth dicatat "Admin (manual)")
+  async redeemManual(b) {
+    const e = must(await db.from('employees').select('id,nama,checked_in_at').eq('nik', clean(b.nik)).maybeSingle()).data;
+    if (!e) throw new Error('NIK tidak ditemukan');
+    if (!e.checked_in_at) throw new Error(`${e.nama} belum check-in. Check-in dulu sebelum menukar kupon`);
+    const cp = must(await db.from('coupon_types').select('id,nama').eq('id', Number(b.coupon_id)).maybeSingle()).data;
+    if (!cp) throw new Error('Kupon tidak ditemukan');
+    const r = await db.from('redemptions').insert({ employee_id: e.id, coupon_type_id: cp.id, booth: 'Admin (manual)' });
+    if (r.error?.code === '23505') throw new Error(`Kupon ${cp.nama} sudah dipakai ${e.nama}`);
+    must(r); return {};
+  },
+  // koreksi kupon yang salah ditukar: pindahkan catatan penukaran dari kupon A ke kupon B (waktu penukaran tetap)
+  async changeKupon(b) {
+    const from = Number(b.from_id), to = Number(b.to_id);
+    if (!from || !to || from === to) throw new Error('Pilih kupon tujuan yang berbeda');
+    const e = must(await db.from('employees').select('id,nama').eq('nik', clean(b.nik)).maybeSingle()).data;
+    if (!e) throw new Error('NIK tidak ditemukan');
+    const cp = must(await db.from('coupon_types').select('id').eq('id', to).maybeSingle()).data;
+    if (!cp) throw new Error('Kupon tujuan tidak ditemukan');
+    const r = await db.from('redemptions').update({ coupon_type_id: to }).eq('employee_id', e.id).eq('coupon_type_id', from).select('id');
+    if (r.error?.code === '23505') throw new Error(`${e.nama} sudah pernah menukar kupon tujuan itu`);
+    must(r);
+    if (!r.data.length) throw new Error('Catatan kupon asal tidak ditemukan');
+    return {};
+  },
   // batalkan check-in peserta (kembali ke status Belum check-in); kupon dan undian yang sudah tercatat tidak ikut dihapus
   async resetCheckin(b) {
     const r = must(await db.from('employees').update({ checked_in_at: null }).eq('nik', clean(b.nik)).not('checked_in_at', 'is', null).select('id'));
@@ -270,6 +295,8 @@ const LOGS = {
   deleteEmployee: ['peserta', (b, r, c) => `Menghapus peserta ${nm(c)}`],
   resetKupon: ['peserta', (b, r, c) => `Reset kupon ${nm(c)}` + (b.kupon_nama ? ` (${String(b.kupon_nama).slice(0, 40)})` : ' (semua kupon)') + `: ${r.removed} catatan dihapus`],
   resetUndian: ['undian', (b, r, c) => `Reset undian ${nm(c)}` + (b.hadiah_nama ? ` (${String(b.hadiah_nama).slice(0, 40)})` : ' (semua undian)') + `: ${r.removed} catatan dihapus`],
+  redeemManual: ['redeem', (b, r, c) => `Redeem manual ${String(b.kupon_nama || '').slice(0, 40)} ${nm(c)} (admin)`],
+  changeKupon: ['redeem', (b, r, c) => `Ubah kupon ${nm(c)}: ${String(b.dari_nama || '').slice(0, 40)} menjadi ${String(b.ke_nama || '').slice(0, 40)}`],
   resetCheckin: ['checkin', (b, r, c) => `Reset check-in ${nm(c)}`],
   resetPeserta: ['peserta', (b, r, c) => `Reset password peserta ${nm(c)}`],
   import: ['peserta', (b, r) => `Import Excel: ${r.imported} peserta` + (r.skipped ? `, ${r.skipped} dilewati` : '') + (r.duplicates ? `, ${r.duplicates} NIK ganda` : '')],

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useLoad, useAct, Modal, Pager, Loading, Busy, Title, useUI } from '../ui';
 import { adm, fmtFull, fmtDateTime, fmtTime } from '@/lib/client';
 
-const FILTERS = [['', 'Semua'], ['hadir', 'Sudah check-in'], ['belum', 'Belum check-in'], ['nonaktif', 'Belum aktivasi']];
+const FILTERS = [['', 'Semua'], ['hadir', 'Sudah check-in'], ['belum', 'Belum check-in'], ['aktif', 'Sudah aktivasi'], ['nonaktif', 'Belum aktivasi']];
 const SIZE = 50;
 const EMPTY = { id: null, nik: '', nama: '', divisi: '', cabang: '', max_hadiah: '' };
 

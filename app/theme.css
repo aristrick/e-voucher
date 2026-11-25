@@ -271,3 +271,14 @@ td.act,th.act{width:1%;white-space:nowrap;text-align:right}
 
 /* ---------- tanda pembuat ---------- */
 .credit{text-align:center;padding:14px 16px 20px;font-size:13px;font-weight:700;color:#000}
+
+/* ---------- pilihan mode scan panitia: warna dan label berbeda, mode aktif berisi centang ---------- */
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.mode{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 8px;border:3px solid #000;border-radius:14px;background:#fff;color:#555;font:inherit;cursor:pointer;opacity:.7;text-align:center}
+.mode b{font-size:20px;letter-spacing:.5px}.mode span{font-size:12px;font-weight:500;line-height:1.25}
+.mode.on{opacity:1;color:#000;box-shadow:4px 4px 0 #000}
+.mode.ci.on{background:var(--purple)}.mode.rd.on{background:var(--yellow)}
+.mode:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+.camwrap.ci{box-shadow:0 0 0 6px var(--purple)}.camwrap.rd{box-shadow:0 0 0 6px var(--yellow)}
+.camwrap.ci .cam-mode{background:var(--purple);color:#000}.camwrap.rd .cam-mode{background:var(--yellow);color:#000}
+.cam-mode{border:2px solid #000}

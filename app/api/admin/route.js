@@ -63,6 +63,7 @@ const H = {
     if (s) q = q.or(`nama.ilike.%${s}%,nik.ilike.%${s}%,cabang.ilike.%${s}%,divisi.ilike.%${s}%`);
     if (b.status === 'hadir') q = q.not('checked_in_at', 'is', null);
     if (b.status === 'belum') q = q.is('checked_in_at', null);
+    if (b.status === 'aktif') q = q.not('pass_hash', 'is', null);
     if (b.status === 'nonaktif') q = q.is('pass_hash', null);
     const r = must(await q.order('nama').order('nik').range(from, from + size - 1));
     const ids = r.data.map((e) => e.id);

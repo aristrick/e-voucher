@@ -1,14 +1,15 @@
 'use client';
 import { usePathname } from 'next/navigation';
 import { post } from '@/lib/client';
-import { UIProvider } from './ui';
+import { UIProvider, useUI } from './ui';
 const NAV = [
   ['/admin', 'Ringkasan'], ['/admin/peserta', 'Peserta'], ['/admin/panitia', 'Panitia'],
   ['/admin/kupon', 'Kupon'], ['/admin/hadiah', 'Hadiah'], ['/admin/pemenang', 'Pemenang'], ['/admin/history', 'History'], ['/admin/pengaturan', 'Pengaturan'],
 ];
 export default function Shell({ children }) {
   const path = usePathname();
-  const out = async () => { await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
+  const { ask } = useUI();
+  const out = async () => { const ok = await ask('Yakin ingin keluar dari akun ini?', { title: 'Keluar?', okText: 'Ya, keluar' }); if (!ok) return; await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
   return (
     <UIProvider>
     <div className="shell">

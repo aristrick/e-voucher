@@ -2,8 +2,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { post, fmtTime, fmtFull, unit } from '@/lib/client';
 import * as sfx from '@/lib/sound';
+import { useUI } from '@/app/admin/ui';
 
 export default function Staff() {
+  const { ask } = useUI();
   const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
   const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false), [booth, setBooth] = useState('');
   const [camReady, setCamReady] = useState(false), [torchOk, setTorchOk] = useState(false), [torch, setTorch] = useState(false);
@@ -90,23 +92,25 @@ export default function Staff() {
   }, [on]);
 
   const toggleTorch = async () => { try { await sc.current.getRunningTrackCameraCapabilities().torchFeature().apply(!torch); setTorch(!torch); } catch {} };
-  const out = async () => { await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
+  const out = async () => { const ok = await ask('Yakin ingin keluar dari akun ini?', { title: 'Keluar?', okText: 'Ya, keluar' }); if (!ok) return; await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
   const manual = () => { act(code, true); setCode(''); };
 
   if (!on) return <div className="wrap" role="status" aria-busy="true" aria-label="Memuat">{loadErr && <div className="err">{loadErr}. Mencoba lagi...</div>}<span className="sk" style={{ height: 52, borderRadius: 12 }} /><span className="sk" style={{ height: 300, marginTop: 14, borderRadius: 12 }} /><span className="sk" style={{ height: 52, marginTop: 14, borderRadius: 12 }} /></div>;
   const okCount = hist.filter((h) => h.ok).length;
   return (
     <div className="wrap">
-      <div className="row" style={{ marginBottom: 12 }}>
-        <span className="gap">
-          <button className={'btn b' + (mode === 'checkin' ? ' sel' : '')} onClick={() => setMode('checkin')}>Check-in</button>
-          <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
-        </span>
+      <div className="row" style={{ marginBottom: 10, justifyContent: 'flex-end' }}>
         <span className="gap">
           <button className="btn sm w" onClick={toggleMute} aria-pressed={!mute}>{mute ? 'Suara mati' : 'Suara hidup'}</button>
           {isAdmin && <a className="btn sm w" href="/admin">Dashboard</a>}
           <button className="btn sm y" onClick={out}>Keluar</button>
         </span>
+      </div>
+      <div className="modes" role="group" aria-label="Pilih mode scan">
+        <button type="button" className={'mode ci' + (mode === 'checkin' ? ' on' : '')} aria-pressed={mode === 'checkin'} onClick={() => setMode('checkin')}>
+          <b>{mode === 'checkin' ? '✓ ' : ''}CHECK-IN</b><span>Catat kehadiran di pintu masuk</span></button>
+        <button type="button" className={'mode rd' + (mode === 'redeem' ? ' on' : '')} aria-pressed={mode === 'redeem'} onClick={() => setMode('redeem')}>
+          <b>{mode === 'redeem' ? '✓ ' : ''}REDEEM</b><span>Tukar kupon di booth</span></button>
       </div>
       {mode === 'redeem' && <>
         {coupons.length
@@ -115,10 +119,10 @@ export default function Staff() {
         <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />
       </>}
       {!camErr && <>
-        <div className="camwrap">
+        <div className={'camwrap ' + (mode === 'checkin' ? 'ci' : 'rd')}>
           <div id="cam" />
           {camReady && <div className="scan-frame" aria-hidden="true"><i /><i /><i /><i /></div>}
-          <span className="cam-mode">{mode === 'checkin' ? 'Check-in' : 'Redeem' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
+          <span className="cam-mode">{mode === 'checkin' ? 'MODE CHECK-IN' : 'MODE REDEEM' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
           {!camReady && <div className="cam-load" role="status">Menyalakan kamera...</div>}
           {torchOk && <button type="button" className="btn sm w torch" onClick={toggleTorch} aria-pressed={torch}>{torch ? 'Senter mati' : 'Senter'}</button>}
           {pending && <div className="scanning" role="status">Memproses...</div>}

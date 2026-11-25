@@ -93,3 +93,4 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - Tanda "Setia Kawan Project by Aris Setiawan" di paling bawah semua halaman.
 - Peserta > Reset > Check-in: batalkan check-in satu peserta (kembali Belum check-in, bisa dipindai ulang). Kupon dan undian yang sudah tercatat tidak ikut terhapus. Tercatat di History.
 - Peserta > Kupon: admin bisa menukar kupon secara manual (sama seperti redeem panitia, peserta harus sudah check-in, dicatat sebagai booth "Admin (manual)") dan mengoreksi kupon yang salah ditukar (pindah dari kupon A ke B, waktu penukaran tetap). Keduanya tercatat di History.
+- Keluar (peserta, panitia, admin) kini meminta konfirmasi. Mode scan panitia dibuat lebih jelas: dua tombol besar berwarna (Check-in ungu, Redeem kuning) dengan centang pada mode aktif, bingkai kamera ikut berwarna, dan label "MODE CHECK-IN / MODE REDEEM" di atas kamera. Peserta: filter baru Sudah aktivasi.

@@ -2,10 +2,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { post, fmtFull, unit } from '@/lib/client';
+import { useUI } from '@/app/admin/ui';
 
 const cached = () => { try { return JSON.parse(localStorage.getItem('tiket') || 'null'); } catch { return null; } };
 
 export default function Home() {
+  const { ask } = useUI();
   const [t, setT] = useState(null), [ev, setEv] = useState(null), [ready, setReady] = useState(false), [toast, setToast] = useState('');
   const [step, setStep] = useState(1), [info, setInfo] = useState(null), [f, setF] = useState({ nik: '', hp: '', pw: '', pw2: '' });
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
@@ -57,7 +59,7 @@ export default function Home() {
     if (!r.ok) { setBusy(false); return setErr(r.error); }
     await load(); setBusy(false); setF({ nik: '', hp: '', pw: '', pw2: '' }); setStep(1); setInfo(null);
   };
-  const out = async () => { await post('/api/auth', { action: 'logout' }); localStorage.removeItem('tiket'); last.current = null; setT(null); setStep(1); };
+  const out = async () => { const ok = await ask('Yakin ingin keluar dari akun ini?', { title: 'Keluar?', okText: 'Ya, keluar' }); if (!ok) return; await post('/api/auth', { action: 'logout' }); localStorage.removeItem('tiket'); last.current = null; setT(null); setStep(1); };
 
   if (!t && !ready) return <div className="wrap" role="status" aria-busy="true" aria-label="Memuat"><div className="card"><span className="sk" style={{ width: '40%', height: 18 }} /><span className="sk" style={{ height: 52, marginTop: 14 }} /><span className="sk" style={{ width: '70%', height: 14 }} /></div><div className="card"><span className="sk" style={{ width: '50%', height: 22 }} /><span className="sk" style={{ height: 180, marginTop: 14 }} /></div></div>;
   const e = ev?.event || {};

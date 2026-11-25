@@ -8,7 +8,7 @@ export default function Pemenang() {
     <>
       <Title right={<button className="btn sm b" onClick={() => reload()}>Segarkan</button>}>Pemenang</Title>
       <Msg />
-      {!d ? <Loading err={err} /> : d.draws.length === 0 ? <div className="card empty">Belum ada undian. Mulai dari <a href="/stage" target="_blank" rel="noreferrer">layar undian</a>.</div> : (
+      {!d ? <Loading err={err} /> : d.draws.length === 0 ? <div className="card empty">Belum ada undian. Mulai dari <a href="/stage">layar undian</a>.</div> : (
         <div className="tw"><table>
           <thead><tr><th>Pemenang</th><th>NIK</th><th>Cabang</th><th>Hadiah</th><th>Waktu</th><th>Status</th><th></th></tr></thead>
           <tbody>{d.draws.map((x) => (

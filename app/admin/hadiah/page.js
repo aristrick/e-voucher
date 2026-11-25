@@ -9,7 +9,7 @@ export default function Hadiah() {
   const save = async () => { const r = await run({ action: 'updatePrize', ...ed }, 'Hadiah diperbarui'); if (r.ok) setEd(null); };
   return (
     <>
-      <Title right={<a className="btn b" href="/stage" target="_blank" rel="noreferrer">Buka layar undian</a>}>Hadiah doorprize</Title>
+      <Title right={<a className="btn b" href="/stage">Buka layar undian</a>}>Hadiah doorprize</Title>
       <Msg />
       <div className="card"><h2>Tambah hadiah</h2>
         <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'nowrap' }}>

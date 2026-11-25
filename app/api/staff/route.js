@@ -2,14 +2,15 @@ import { db, role, json } from '@/lib/db';
 export const dynamic = 'force-dynamic';
 
 export async function POST(req) {
-  if (!(await role(req))) return json({ error: 'Belum login' }, 401);
+  const who0 = await role(req);
+  if (!who0) return json({ error: 'Belum login' }, 401);
   try {
     const { action, code, coupon_id, booth } = await req.json();
 
     if (action === 'coupons') {
       const { data, error } = await db.from('coupon_types').select('id,nama').order('urutan').order('id');
       if (error) return json({ error: error.message }, 500);
-      return json({ coupons: data || [] });
+      return json({ coupons: data || [], role: who0 });
     }
 
     // QR berisi token; panitia juga boleh mengetik NIK atau kode tiket (dengan atau tanpa strip)

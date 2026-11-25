@@ -5,7 +5,7 @@ import { post, fmtTime, fmtFull } from '@/lib/client';
 export default function Staff() {
   const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
   const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false), [booth, setBooth] = useState('');
-  const [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState(''), [hist, setHist] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false), [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState(''), [hist, setHist] = useState([]);
   const busy = useRef(false), ref = useRef({}), timer = useRef(null);
   ref.current = { mode, coupon, booth };
 
@@ -40,7 +40,7 @@ export default function Staff() {
       while (alive) {
         const r = await post('/api/staff', { action: 'coupons' });
         if (r.status === 401) { location.href = '/login'; return; }
-        if (r.ok && Array.isArray(r.coupons)) { setCoupons(r.coupons); setCoupon(r.coupons[0]?.id || ''); setOn(true); return; }
+        if (r.ok && Array.isArray(r.coupons)) { setCoupons(r.coupons); setIsAdmin(r.role === 'admin'); setCoupon(r.coupons[0]?.id || ''); setOn(true); return; }
         setLoadErr(r.error || 'Server error ' + r.status);
         await new Promise((x) => setTimeout(x, 3000));
       }
@@ -74,7 +74,10 @@ export default function Staff() {
           <button className={'btn b' + (mode === 'checkin' ? ' sel' : '')} onClick={() => setMode('checkin')}>Check-in</button>
           <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
         </span>
-        <button className="btn sm y" onClick={out}>Keluar</button>
+        <span className="gap">
+          {isAdmin && <a className="btn sm w" href="/admin">Dashboard</a>}
+          <button className="btn sm y" onClick={out}>Keluar</button>
+        </span>
       </div>
       {mode === 'redeem' && <>
         {coupons.length

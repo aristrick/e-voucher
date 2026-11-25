@@ -91,3 +91,4 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - Peserta > Reset > Undian: hapus satu catatan undian atau semua catatan undian peserta. Stok hadiah kembali dan peserta (termasuk yang pernah ditandai tidak hadir) bisa diundi lagi. Tercatat di History.
 - Kamera scan: fokus otomatis terus-menerus dan resolusi 720p. Tampilan dirapikan: kamera persegi (tinggi dibatasi), bingkai dengan garis scan, label mode (Check-in / Redeem + nama kupon), tulisan "Menyalakan kamera...", dan tombol Senter jika perangkat mendukung (tidak ada di iPhone).
 - Tanda "Setia Kawan Project by Aris Setiawan" di paling bawah semua halaman.
+- Peserta > Reset > Check-in: batalkan check-in satu peserta (kembali Belum check-in, bisa dipindai ulang). Kupon dan undian yang sudah tercatat tidak ikut terhapus. Tercatat di History.

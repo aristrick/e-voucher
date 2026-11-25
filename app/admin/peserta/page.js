@@ -84,7 +84,7 @@ export default function Peserta() {
                 <td className="act"><span className="acts">
                   {!e.checked_in_at && <button className="btn sm g" onClick={async () => (await ask(`Check-in manual untuk ${e.nama}? Waktu check-in dicatat sekarang.`, { title: 'Check-in manual', okText: 'Check-in' })) && run({ action: 'checkinManual', nik: e.nik }, `${e.nama} berhasil check-in`)}>Check-in</button>}
                   <button className="btn sm y" onClick={() => { setMsg(null); setForm({ id: e.id, nik: e.nik, nama: e.nama, divisi: e.divisi || '', cabang: e.cabang || '', max_hadiah: e.max_hadiah || '' }); }}>Ubah</button>
-                  {(e.aktif || e.kupon.length > 0 || e.undian.length > 0) && <button className="btn sm w" onClick={() => setRs(e)}>Reset</button>}
+                  {(e.aktif || e.checked_in_at || e.kupon.length > 0 || e.undian.length > 0) && <button className="btn sm w" onClick={() => setRs(e)}>Reset</button>}
                   <button className="btn sm r" onClick={async () => (await ask(`Hapus ${e.nama}? Riwayat kupon dan undian peserta ini ikut terhapus.`)) && run({ action: 'deleteEmployee', nik: e.nik }, 'Peserta dihapus')}>Hapus</button>
                 </span></td>
               </tr>))}
@@ -106,6 +106,10 @@ export default function Peserta() {
           if (await ask(all ? `Hapus semua catatan undian ${e.nama} (${e.undian.length} catatan)? Stok hadiah kembali dan peserta bisa diundi lagi.` : `Hapus catatan undian ${u.nama} milik ${e.nama}? Stok hadiah kembali dan peserta bisa diundi lagi.`, { title: all ? 'Reset semua undian?' : 'Reset undian?', danger: true, okText: 'Ya, reset' }))
             done({ body: { action: 'resetUndian', nik: e.nik, draw_id: u?.id, hadiah_nama: u?.nama }, ok: all ? 'Semua undian direset' : `Undian ${u.nama} direset` });
         };
+        const resetCheckin = async () => {
+          if (await ask(`Batalkan check-in ${e.nama}? Statusnya kembali Belum check-in dan harus dipindai ulang. Kupon dan undian yang sudah tercatat tidak ikut terhapus.`, { title: 'Reset check-in?', danger: true, okText: 'Ya, reset' }))
+            done({ body: { action: 'resetCheckin', nik: e.nik }, ok: 'Check-in direset' });
+        };
         const resetAkun = async () => {
           if (await ask(`Reset password dan nomor HP ${e.nama}? Peserta perlu aktivasi ulang (isi nomor HP dan password baru).`, { title: 'Reset akun?', danger: true, okText: 'Ya, reset' }))
             done({ body: { action: 'resetPeserta', nik: e.nik }, ok: 'Password dan nomor HP direset. Peserta bisa aktivasi ulang.' });
@@ -116,6 +120,10 @@ export default function Peserta() {
           {e.aktif
             ? <button className="opt" onClick={resetAkun}><b>Reset password dan nomor HP</b><span>Peserta harus aktivasi ulang. Nomor HP saat ini: {e.hp || '-'}</span></button>
             : <div className="mute">Akun belum diaktivasi, tidak ada yang perlu direset.</div>}
+          <h3 style={{ marginTop: 14 }}>Check-in</h3>
+          {e.checked_in_at
+            ? <button className="opt" onClick={resetCheckin}><b>Reset check-in</b><span>Check-in: {fmtFull(e.checked_in_at)}</span></button>
+            : <div className="mute">Belum check-in, tidak ada yang perlu direset.</div>}
           <h3 style={{ marginTop: 14 }}>Kupon</h3>
           {e.kupon.length === 0 ? <div className="mute">Belum ada kupon yang ditukar.</div> : <>
             {e.kupon.map((k) => <button key={k.id} className="opt" onClick={() => resetKupon(k)}><b>Reset kupon {k.nama}</b><span>Ditukar {fmtFull(k.at)}</span></button>)}

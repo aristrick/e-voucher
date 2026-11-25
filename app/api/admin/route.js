@@ -125,6 +125,12 @@ const H = {
     must(await db.from('employees').update({ checked_in_at: iso() }).eq('id', e.id).is('checked_in_at', null));
     return {};
   },
+  // batalkan check-in peserta (kembali ke status Belum check-in); kupon dan undian yang sudah tercatat tidak ikut dihapus
+  async resetCheckin(b) {
+    const r = must(await db.from('employees').update({ checked_in_at: null }).eq('nik', clean(b.nik)).not('checked_in_at', 'is', null).select('id'));
+    if (!r.data.length) throw new Error('Peserta tidak ditemukan atau belum check-in');
+    return {};
+  },
   async resetPeserta(b) {
     const r = must(await db.from('employees').update({ pass_hash: null, hp: null, fail_count: 0, locked_until: null }).eq('nik', clean(b.nik)).select('id'));
     if (!r.data.length) throw new Error('NIK tidak ditemukan');
@@ -264,6 +270,7 @@ const LOGS = {
   deleteEmployee: ['peserta', (b, r, c) => `Menghapus peserta ${nm(c)}`],
   resetKupon: ['peserta', (b, r, c) => `Reset kupon ${nm(c)}` + (b.kupon_nama ? ` (${String(b.kupon_nama).slice(0, 40)})` : ' (semua kupon)') + `: ${r.removed} catatan dihapus`],
   resetUndian: ['undian', (b, r, c) => `Reset undian ${nm(c)}` + (b.hadiah_nama ? ` (${String(b.hadiah_nama).slice(0, 40)})` : ' (semua undian)') + `: ${r.removed} catatan dihapus`],
+  resetCheckin: ['checkin', (b, r, c) => `Reset check-in ${nm(c)}`],
   resetPeserta: ['peserta', (b, r, c) => `Reset password peserta ${nm(c)}`],
   import: ['peserta', (b, r) => `Import Excel: ${r.imported} peserta` + (r.skipped ? `, ${r.skipped} dilewati` : '') + (r.duplicates ? `, ${r.duplicates} NIK ganda` : '')],
   deleteAllEmployees: ['peserta', (b, r) => `Menghapus SEMUA peserta (${r.removed} peserta, beserta kupon dan undiannya)`],

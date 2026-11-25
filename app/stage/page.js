@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { adm } from '@/lib/client';
+import * as sfx from '@/lib/sound';
 
 const COLORS = ['#A66CFF', '#FF8FB8', '#FFD84D', '#7CC4FF', '#C8E64A'];
 const TAU = Math.PI * 2, SIZE = 900, R = SIZE / 2 - 14;
@@ -29,8 +30,8 @@ function paint(cv, segs, rot) {
 export default function Stage() {
   const [d, setD] = useState(null), [lerr, setLerr] = useState(''), [prize, setPrize] = useState(''), [err, setErr] = useState('');
   const [segs, setSegs] = useState(IDLE), [run, setRun] = useState(false), [win, setWin] = useState(null), [boom, setBoom] = useState(false), [mute, setMute] = useState(false), [note, setNote] = useState('');
-  const nt = useRef(null), cv = useRef(null), rot = useRef(0), raf = useRef(0), audio = useRef(null), muteRef = useRef(false);
-  muteRef.current = mute;
+  const nt = useRef(null), cv = useRef(null), rot = useRef(0), raf = useRef(0);
+  useEffect(() => { setMute(sfx.isMuted()); }, []);
 
   const load = useCallback(async () => {
     const r = await adm({ action: 'stageInfo' });
@@ -46,16 +47,6 @@ export default function Stage() {
   }, [load]);
   useEffect(() => { if (cv.current) paint(cv.current, segs, rot.current); }, [segs, d]);
 
-  const tick = () => {
-    if (muteRef.current) return;
-    try {
-      const a = audio.current || (audio.current = new (window.AudioContext || window.webkitAudioContext)());
-      const o = a.createOscillator(), g = a.createGain(); o.type = 'square'; o.frequency.value = 900;
-      g.gain.setValueAtTime(0.05, a.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime + 0.05);
-      o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + 0.05);
-    } catch {}
-  };
-
   const animate = (list, idx, done) => {
     const arc = TAU / list.length;
     // titik runcing di atas (-90 derajat). Segmen pemenang diputar ke sana, dengan sedikit geser acak di dalam segmennya.
@@ -67,7 +58,7 @@ export default function Stage() {
       const p = Math.min((now - t0) / dur, 1), e = 1 - Math.pow(1 - p, 4);
       rot.current = from + (to - from) * e;
       const seg = Math.floor((((-Math.PI / 2 - rot.current) % TAU) + TAU) % TAU / arc);
-      if (seg !== lastSeg) { lastSeg = seg; tick(); }
+      if (seg !== lastSeg) { lastSeg = seg; sfx.tick(); }
       paint(cv.current, list, rot.current);
       if (p < 1) raf.current = requestAnimationFrame(frame); else done();
     };
@@ -77,13 +68,13 @@ export default function Stage() {
   const spin = async () => {
     if (run || !prize) return;
     setErr(''); setWin(null); setBoom(false); setRun(true);
-    audio.current?.resume?.();
+    sfx.unlock(); sfx.spinStart();
     const r = await adm({ action: 'draw', prize_id: Number(prize) });
     if (!r.ok) { setRun(false); return setErr(r.error); }
     const list = shuffle([...(r.decoys || []), r.winner]);
     const idx = list.findIndex((x) => x === r.winner);
     rot.current = 0; setSegs(list);
-    requestAnimationFrame(() => animate(list, idx, () => { setWin(r.winner); setBoom(true); setRun(false); load(); setTimeout(() => setBoom(false), 5000); }));
+    requestAnimationFrame(() => animate(list, idx, () => { sfx.win(); setWin(r.winner); setBoom(true); setRun(false); load(); setTimeout(() => setBoom(false), 5000); }));
   };
   const forfeit = async () => {
     const id = win.draw_id; setWin(null);
@@ -140,7 +131,7 @@ export default function Stage() {
         <div className="gap">
           <a className="btn sm w" href="/admin">Dashboard</a>
           <button className="btn sm w" onClick={full}>Layar penuh</button>
-          <button className="btn sm w" onClick={() => setMute(!mute)}>{mute ? 'Suara mati' : 'Suara hidup'}</button>
+          <button className="btn sm w" onClick={() => { const m = !mute; sfx.setMuted(m); setMute(m); if (!m) sfx.tick(); }}>{mute ? 'Suara mati' : 'Suara hidup'}</button>
         </div>
       </div>
 

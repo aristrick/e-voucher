@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { post, fmtTime, fmtFull } from '@/lib/client';
+import * as sfx from '@/lib/sound';
 
 export default function Staff() {
   const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
@@ -9,7 +10,15 @@ export default function Staff() {
   const busy = useRef(false), ref = useRef({}), timer = useRef(null);
   ref.current = { mode, coupon, booth };
 
-  useEffect(() => { setBooth(localStorage.getItem('booth') || ''); }, []);
+  const [mute, setMute] = useState(false);
+  useEffect(() => {
+    setBooth(localStorage.getItem('booth') || ''); setMute(sfx.isMuted());
+    // browser baru mengizinkan suara setelah layar disentuh sekali
+    const u = () => sfx.unlock();
+    window.addEventListener('pointerdown', u, { once: true }); window.addEventListener('keydown', u, { once: true });
+    return () => { window.removeEventListener('pointerdown', u); window.removeEventListener('keydown', u); };
+  }, []);
+  const toggleMute = () => { const m = !mute; sfx.setMuted(m); setMute(m); if (!m) sfx.success(); };
   const saveBooth = (v) => { setBooth(v); localStorage.setItem('booth', v); };
 
   // tutup popup, lalu izinkan scan berikutnya (jeda singkat agar QR yang sama tidak terbaca ulang)
@@ -22,6 +31,7 @@ export default function Staff() {
     setRes(d);
     setHist((h) => [{ ...d, at: new Date().toISOString(), aksi: d.aksi || ref.current.mode }, ...h].slice(0, 10));
     navigator.vibrate?.(d.ok ? 80 : [80, 60, 80]);
+    if (d.ok) sfx.success(); else sfx.fail();
     clearTimeout(timer.current);
     timer.current = setTimeout(release, 3000);
   };
@@ -75,6 +85,7 @@ export default function Staff() {
           <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
         </span>
         <span className="gap">
+          <button className="btn sm w" onClick={toggleMute} aria-pressed={!mute}>{mute ? 'Suara mati' : 'Suara hidup'}</button>
           {isAdmin && <a className="btn sm w" href="/admin">Dashboard</a>}
           <button className="btn sm y" onClick={out}>Keluar</button>
         </span>

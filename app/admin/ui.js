@@ -46,7 +46,7 @@ export function Modal({ title, onClose, children }) {
   }, [onClose]);
   return (
     <div className="pop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="pop-box modal" role="dialog" aria-modal="true" aria-label={title} style={{ maxWidth: 520 }}>
+      <div className="pop-box modal" role="dialog" aria-modal="true" aria-label={title} style={{ maxWidth: 640 }}>
         <div className="row"><h2 style={{ margin: 0 }}>{title}</h2><button className="btn sm w" onClick={onClose}>Tutup</button></div>
         {children}
       </div>

@@ -12,20 +12,20 @@ export default function Hadiah() {
       <Title right={<a className="btn b" href="/stage">Buka layar undian</a>}>Hadiah doorprize</Title>
       <Msg />
       <div className="card"><h2>Tambah hadiah</h2>
-        <div className="row" style={{ alignItems: 'flex-end', flexWrap: 'nowrap' }}>
-          <div style={{ flex: 1 }}><label className="lbl" htmlFor="pn">Nama hadiah</label><input id="pn" placeholder="Contoh: TV 43 inci" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></div>
-          <div style={{ width: 90 }}><label className="lbl" htmlFor="ps">Jumlah</label><input id="ps" type="number" min="1" value={f.stok} onChange={(e) => setF({ ...f, stok: e.target.value })} /></div>
+        <div className="inline-add">
+          <div><label className="lbl" htmlFor="pn">Nama hadiah</label><input id="pn" placeholder="Contoh: TV 43 inci" value={f.nama} onChange={(e) => setF({ ...f, nama: e.target.value })} /></div>
+          <div className="sm"><label className="lbl" htmlFor="ps">Jumlah</label><input id="ps" type="number" min="1" value={f.stok} onChange={(e) => setF({ ...f, stok: e.target.value })} /></div>
           <button className="btn" onClick={add}>Tambah</button></div>
       </div>
       {!d ? <Loading err={err} /> : d.prizes.length === 0 ? <div className="card empty">Belum ada hadiah.</div> : (
-        <div className="tw"><table>
-          <thead><tr><th>Hadiah</th><th>Jumlah</th><th>Sudah diundi</th><th>Sisa</th><th></th></tr></thead>
+        <div className="tw stick"><table className="rt">
+          <thead><tr><th>Hadiah</th><th>Jumlah</th><th>Sudah diundi</th><th>Sisa</th><th className="act">Aksi</th></tr></thead>
           <tbody>{d.prizes.map((p) => (
-            <tr key={p.id}><td><b>{p.nama}</b></td><td>{p.stok}</td><td>{p.won}</td>
-              <td><span className={'chip' + (p.stok - p.won > 0 ? '' : ' no')}>{Math.max(p.stok - p.won, 0)}</span></td>
-              <td><span className="gap">
+            <tr key={p.id}><td className="nm"><b>{p.nama}</b></td><td data-label="Jumlah">{p.stok}</td><td data-label="Sudah diundi">{p.won}</td>
+              <td data-label="Sisa"><span className={'chip' + (p.stok - p.won > 0 ? '' : ' no')}>{Math.max(p.stok - p.won, 0)}</span></td>
+              <td className="act"><span className="acts">
                 <button className="btn sm y" onClick={() => setEd({ id: p.id, nama: p.nama, stok: p.stok })}>Ubah</button>
-                <button className="btn sm w" onClick={() => confirm(`Hapus hadiah ${p.nama}?` + (p.won ? ` ${p.won} pemenangnya ikut terhapus.` : '')) && run({ action: 'deletePrize', id: p.id }, 'Hadiah dihapus')}>Hapus</button>
+                <button className="btn sm r" onClick={() => confirm(`Hapus hadiah ${p.nama}?` + (p.won ? ` ${p.won} pemenangnya ikut terhapus.` : '')) && run({ action: 'deletePrize', id: p.id }, 'Hadiah dihapus')}>Hapus</button>
               </span></td></tr>))}
           </tbody></table></div>
       )}

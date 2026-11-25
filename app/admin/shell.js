@@ -2,7 +2,7 @@
 import { usePathname } from 'next/navigation';
 import { post } from '@/lib/client';
 const NAV = [
-  ['/admin', 'Ringkasan'], ['/admin/peserta', 'Peserta'], ['/admin/panitia', 'Panitia'],
+  ['/admin', 'Ringkasan'], ['/admin/peserta', 'Peserta'], ['/admin/history', 'History'], ['/admin/panitia', 'Panitia'],
   ['/admin/kupon', 'Kupon'], ['/admin/hadiah', 'Hadiah'], ['/admin/pemenang', 'Pemenang'], ['/admin/pengaturan', 'Pengaturan'],
 ];
 export default function Shell({ children }) {
@@ -14,9 +14,11 @@ export default function Shell({ children }) {
         <div className="brand">Admin</div>
         {NAV.map(([h, l]) => <a key={h} href={h} className={'nav' + (path === h ? ' on' : '')} aria-current={path === h ? 'page' : undefined}>{l}</a>)}
         <div className="sp" style={{ flex: 1 }} />
-        <a className="btn sm b" href="/stage">Layar undian</a>
-        <a className="btn sm g" href="/staff">Scan</a>
-        <button className="btn sm y" onClick={out}>Keluar</button>
+        <div className="side-foot">
+          <a className="btn sm b" href="/stage">Layar undian</a>
+          <a className="btn sm g" href="/staff">Scan</a>
+          <button className="btn sm y" onClick={out}>Keluar</button>
+        </div>
       </nav>
       <main className="main">{children}</main>
     </div>

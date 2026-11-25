@@ -1,7 +1,8 @@
 import { db, role, json } from '@/lib/db';
+import { actorOf, logAct } from '@/lib/log';
 export const dynamic = 'force-dynamic';
 
-export async function POST(req) {
+async function handle(req) {
   const who0 = await role(req);
   if (!who0) return json({ error: 'Belum login' }, 401);
   try {
@@ -53,4 +54,23 @@ export async function POST(req) {
   } catch (err) {
     return json({ ok: false, msg: 'Server error: ' + (err?.message || 'tidak diketahui') }, 500);
   }
+}
+
+// Tiap scan (berhasil maupun gagal) dicatat ke riwayat
+export async function POST(req) {
+  let act = '', booth = '';
+  try { const b = await req.clone().json(); act = b.action; booth = String(b.booth || '').slice(0, 40); } catch {}
+  const res = await handle(req);
+  if (act === 'checkin' || act === 'redeem') {
+    try {
+      const j = await res.clone().json();
+      const nama = j.nama || '';
+      const what = act === 'checkin' ? 'Check-in' : 'Redeem' + (j.kupon ? ' ' + j.kupon : '');
+      const ringkas = j.ok
+        ? `${what} ${nama}` + (act === 'redeem' && booth ? ` (booth ${booth})` : '')
+        : `${what} gagal${nama ? ' · ' + nama : ''}: ${j.msg || 'tidak diketahui'}`;
+      await logAct(await actorOf(req), { kategori: act, aksi: act, ringkas, ok: !!j.ok, detail: { nik: j.nik || null, kupon: j.kupon || null, booth: booth || null } });
+    } catch {}
+  }
+  return res;
 }

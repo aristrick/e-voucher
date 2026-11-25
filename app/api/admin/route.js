@@ -1,6 +1,7 @@
 import { db, role, json, MIGRATE_MSG } from '@/lib/db';
 import { hash } from '@/lib/auth';
 import { getSettings, DEFAULTS } from '@/lib/settings';
+import { actorOf, logAct } from '@/lib/log';
 export const dynamic = 'force-dynamic';
 
 const must = (r) => {
@@ -46,7 +47,9 @@ const H = {
     const used = await Promise.all(cps.map((c) => n(head('redemptions').eq('coupon_type_id', c.id))));
     const recent = must(await db.from('employees').select('nama,nik,cabang,checked_in_at')
       .not('checked_in_at', 'is', null).order('checked_in_at', { ascending: false }).limit(8)).data;
-    return { total, hadir, aktif, wa, winners, coupons: cps.map((c, i) => ({ ...c, used: used[i] })), recent };
+    let activity = [];
+    try { const r = await db.from('activity_log').select('id,created_at,actor,kategori,ringkas,ok').order('created_at', { ascending: false }).limit(10); if (!r.error) activity = r.data || []; } catch {}
+    return { total, hadir, aktif, wa, winners, coupons: cps.map((c, i) => ({ ...c, used: used[i] })), recent, activity };
   },
 
   // ---------- peserta ----------
@@ -195,6 +198,26 @@ const H = {
     };
   },
 
+  // ---------- riwayat aktivitas ----------
+  async history(b) {
+    const size = Math.min(Math.max(Number(b.size) || 30, 10), 100);
+    const page = Math.max(Number(b.page) || 1, 1), from = (page - 1) * size;
+    let q = db.from('activity_log').select('id,created_at,actor,actor_role,kategori,aksi,ringkas,ok', { count: 'exact' });
+    if (b.kategori) q = q.eq('kategori', String(b.kategori));
+    if (b.status === 'ok') q = q.eq('ok', true);
+    if (b.status === 'gagal') q = q.eq('ok', false);
+    const s = like(b.q);
+    if (s) q = q.or(`ringkas.ilike.%${s}%,actor.ilike.%${s}%`);
+    const r = await q.order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + size - 1);
+    if (r.error) {
+      if (/does not exist|schema cache/i.test(r.error.message || '')) throw new Error('Tabel riwayat belum dibuat. Buka Supabase > SQL Editor, jalankan supabase/migration-v4.sql, lalu muat ulang halaman ini.');
+      throw new Error(r.error.message);
+    }
+    const since = new Date(Date.now() - 864e5).toISOString();
+    const day = await db.from('activity_log').select('*', { count: 'exact', head: true }).gte('created_at', since);
+    return { rows: r.data, total: r.count || 0, page, size, last24: day.count || 0 };
+  },
+
   // ---------- pengaturan acara ----------
   async getSettings() { return { settings: await getSettings() }; },
   async saveSettings(b) {
@@ -205,10 +228,56 @@ const H = {
   },
 };
 
+// Catatan riwayat untuk tiap aksi yang mengubah data: [kategori, (body, hasil, konteks) => kalimat]
+const nm = (c) => c.emp?.nama || c.nik || 'peserta';
+const LOGS = {
+  checkinManual: ['checkin', (b, r, c) => `Check-in manual ${nm(c)}`],
+  addEmployee: ['peserta', (b) => `Menambah peserta ${clean(b.nama)} (NIK ${clean(b.nik)})`],
+  updateEmployee: ['peserta', (b) => `Mengubah data peserta ${clean(b.nama)} (NIK ${clean(b.nik)})`],
+  deleteEmployee: ['peserta', (b, r, c) => `Menghapus peserta ${nm(c)}`],
+  resetPeserta: ['peserta', (b, r, c) => `Reset password peserta ${nm(c)}`],
+  import: ['peserta', (b, r) => `Import Excel: ${r.imported} peserta` + (r.skipped ? `, ${r.skipped} dilewati` : '') + (r.duplicates ? `, ${r.duplicates} NIK ganda` : '')],
+  exportEmployees: ['peserta', (b, r) => `Ekspor Excel (${r.rows?.length || 0} peserta)`],
+  addStaff: ['panitia', (b) => `Menambah akun panitia ${clean(b.username).toLowerCase()}`],
+  toggleStaff: ['panitia', (b, r, c) => `${b.aktif ? 'Mengaktifkan' : 'Menonaktifkan'} panitia ${c.staff?.username || ''}`],
+  resetStaff: ['panitia', (b, r, c) => `Mengganti password panitia ${c.staff?.username || ''}`],
+  deleteStaff: ['panitia', (b, r, c) => `Menghapus akun panitia ${c.staff?.username || ''}`],
+  addCoupon: ['kupon', (b) => `Menambah kupon ${clean(b.nama)}`],
+  renameCoupon: ['kupon', (b, r, c) => `Mengubah nama kupon ${c.coupon?.nama || ''} menjadi ${clean(b.nama)}`],
+  deleteCoupon: ['kupon', (b, r, c) => `Menghapus kupon ${c.coupon?.nama || ''}`],
+  addPrize: ['hadiah', (b) => `Menambah hadiah ${clean(b.nama)} (jumlah ${Math.max(Number(b.stok) || 1, 1)})`],
+  updatePrize: ['hadiah', (b) => `Mengubah hadiah ${clean(b.nama)} (jumlah ${Math.max(Number(b.stok) || 1, 1)})`],
+  deletePrize: ['hadiah', (b, r, c) => `Menghapus hadiah ${c.prize?.nama || ''}`],
+  draw: ['undian', (b, r, c) => `Undian ${c.prize?.nama || 'hadiah'}: pemenang ${r.winner?.nama}`],
+  forfeit: ['undian', (b, r, c) => `${c.draw?.employees?.nama || 'Pemenang'} ditandai tidak hadir (${c.draw?.prizes?.nama || 'hadiah'}), stok kembali`],
+  saveSettings: ['pengaturan', () => 'Menyimpan pengaturan acara'],
+};
+
+// Ambil nama yang dibutuhkan untuk kalimat riwayat sebelum aksi menghapus atau mengubahnya
+const context = async (b) => {
+  const c = { nik: clean(b.nik) };
+  try {
+    const t = [];
+    if (b.nik) t.push(db.from('employees').select('nama').eq('nik', clean(b.nik)).maybeSingle().then((r) => { c.emp = r.data; }));
+    if (b.action === 'draw' || b.action === 'deletePrize') t.push(db.from('prizes').select('nama').eq('id', Number(b.prize_id || b.id)).maybeSingle().then((r) => { c.prize = r.data; }));
+    if (b.action === 'forfeit') t.push(db.from('draws').select('prizes(nama),employees(nama)').eq('id', b.draw_id).maybeSingle().then((r) => { c.draw = r.data; }));
+    if (b.action === 'renameCoupon' || b.action === 'deleteCoupon') t.push(db.from('coupon_types').select('nama').eq('id', b.id).maybeSingle().then((r) => { c.coupon = r.data; }));
+    if (/Staff$/.test(b.action)) t.push(db.from('staff').select('username').eq('id', b.id).maybeSingle().then((r) => { c.staff = r.data; }));
+    await Promise.all(t);
+  } catch {}
+  return c;
+};
+
 export async function POST(req) {
   if ((await role(req)) !== 'admin') return json({ error: 'Khusus admin' }, 401);
   let b; try { b = await req.json(); } catch { return json({ error: 'Request tidak valid' }, 400); }
   const h = Object.hasOwn(H, b.action) ? H[b.action] : null;
   if (!h) return json({ error: 'Aksi tidak dikenal' }, 400);
-  try { return json(await h(b)); } catch (e) { return json({ error: e.message || 'Server error' }, 400); }
+  const lg = Object.hasOwn(LOGS, b.action) ? LOGS[b.action] : null;
+  const ctx = lg ? await context(b) : null;
+  try {
+    const res = await h(b);
+    if (lg) await logAct(await actorOf(req), { kategori: lg[0], aksi: b.action, ringkas: lg[1](b, res, ctx) });
+    return json(res);
+  } catch (e) { return json({ error: e.message || 'Server error' }, 400); }
 }

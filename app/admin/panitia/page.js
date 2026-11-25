@@ -13,15 +13,15 @@ export default function Panitia() {
       <Title right={<button className="btn" onClick={() => setAdd(true)}>Tambah panitia</button>}>Panitia</Title>
       <Msg />
       {!d ? <Loading err={err} /> : d.staff.length === 0 ? <div className="card empty">Belum ada akun panitia. Klik Tambah panitia.</div> : (
-        <div className="tw"><table>
-          <thead><tr><th>Username</th><th>Nama</th><th>Status</th><th></th></tr></thead>
+        <div className="tw stick"><table className="rt">
+          <thead><tr><th>Username</th><th>Nama</th><th>Status</th><th className="act">Aksi</th></tr></thead>
           <tbody>{d.staff.map((s) => (
-            <tr key={s.id}><td><b>{s.username}</b></td><td>{s.nama || '-'}</td>
-              <td><span className={'chip' + (s.aktif ? '' : ' off')}>{s.aktif ? 'Aktif' : 'Nonaktif'}</span></td>
-              <td><span className="gap">
+            <tr key={s.id}><td className="nm"><b>{s.username}</b></td><td data-label="Nama">{s.nama || '-'}</td>
+              <td data-label="Status"><span className={'chip' + (s.aktif ? '' : ' off')}>{s.aktif ? 'Aktif' : 'Nonaktif'}</span></td>
+              <td className="act"><span className="acts">
                 <button className="btn sm y" onClick={() => run({ action: 'toggleStaff', id: s.id, aktif: !s.aktif })}>{s.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
                 <button className="btn sm w" onClick={() => setRs(s)}>Ganti password</button>
-                <button className="btn sm w" onClick={() => confirm(`Hapus akun ${s.username}?`) && run({ action: 'deleteStaff', id: s.id }, 'Akun dihapus')}>Hapus</button>
+                <button className="btn sm r" onClick={() => confirm(`Hapus akun ${s.username}?`) && run({ action: 'deleteStaff', id: s.id }, 'Akun dihapus')}>Hapus</button>
               </span></td></tr>))}
           </tbody></table></div>
       )}

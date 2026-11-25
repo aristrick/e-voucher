@@ -1,13 +1,13 @@
 # Tiket Gathering (Next.js + Supabase + Vercel)
 
-Fitur: tiket QR di HP peserta, check-in, redeem kupon (dengan popup hasil scan), undian, dashboard admin.
+Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon (popup hasil scan), undian spin wheel, dashboard admin.
 
 ## Halaman
-- `/` peserta: login NIK + password (aktivasi pertama dengan NIK + 4 digit terakhir HP). Muncul pemberitahuan saat check-in atau kupon tercatat.
+- `/` peserta: halaman depan acara + alur klaim tiket (Cek NIK, Verifikasi, Tiket terbit). Setelah masuk tampil e-tiket, status tiket, dan kupon.
 - `/login` login panitia dan admin.
-- `/staff` panitia: mode Check-in (pintu) dan Redeem (booth). Setiap scan memunculkan popup: nama, NIK, dan kupon yang ditukar.
-- `/admin` admin: import karyawan, kupon, hadiah, akun panitia, kirim WhatsApp.
-- `/stage` admin: layar undian.
+- `/staff` panitia: mode Check-in (pintu) dan Redeem (booth), nama booth, riwayat scan.
+- `/admin` ringkasan. Sub-halaman: `/admin/peserta` (cari, filter, tambah/ubah peserta, check-in manual, import dan ekspor Excel), `/admin/panitia`, `/admin/kupon`, `/admin/hadiah`, `/admin/pemenang`, `/admin/pengaturan` (nama, tanggal, lokasi acara).
+- `/stage` admin: layar undian spin wheel (Spasi untuk memutar).
 - `/api/health` cek apakah variabel environment terisi (tidak menampilkan nilainya).
 
 ## Login
@@ -16,7 +16,8 @@ Fitur: tiket QR di HP peserta, check-in, redeem kupon (dengan popup hasil scan),
 
 ## 1. Supabase
 1. Buat project di supabase.com (pilih region Singapore).
-2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`.
+2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`.
+   Jika database sudah berjalan dari versi lama, jalankan `migration-v2.sql` lalu `migration-v3.sql` (v3 wajib untuk jatah hadiah per karyawan). Tanpa file ini, dashboard dan undian tidak jalan.
 3. Project Settings > API Keys: salin Project URL dan secret/service_role key. RAHASIA, jangan di-commit.
 
 ## 2. Jalankan di komputer
@@ -40,10 +41,31 @@ Lalu `npm run dev` dan buka http://localhost:3000. Untuk uji performa pakai `npm
 5. Kamera scan hanya jalan di HTTPS (domain vercel.app sudah HTTPS).
 
 ## Persiapan acara
-1. `/admin`: import karyawan, satu baris satu orang: `nik, nama, cabang, no hp`.
-2. Atur kupon dan hadiah, buat akun panitia.
-3. Uji: dua HP scan QR yang sama, hanya satu yang boleh berhasil.
+1. `/admin/pengaturan`: isi nama, tanggal, dan lokasi acara.
+2. `/admin/peserta`: Tambah peserta satu per satu lewat tombol Tambah peserta, atau Import Excel (.xlsx, kolom NIK, Nama, Cabang; template bisa diunduh di jendela import). Nomor HP tidak diimpor: peserta mengisinya sendiri saat membuat password.
+3. Atur `/admin/kupon`, `/admin/hadiah`, dan buat akun di `/admin/panitia`.
+4. Uji: dua HP scan QR yang sama, hanya satu yang boleh berhasil.
 
 ## Catatan keamanan
 - Jangan salin isi `.env` ke `.env.example`. File itu ter-commit ke GitHub, isinya harus kosong.
 - Jika secret pernah terpublikasi, ganti key Supabase, `SESSION_SECRET`, dan PIN.
+
+## Undian
+Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum pernah menang), lalu roda diputar sampai berhenti di nama pemenang itu. Segmen roda berisi pemenang ditambah hingga 17 nama peserta lain sebagai pengisi, karena ratusan nama tidak muat dalam satu roda. Tombol "Tidak hadir, undi ulang" mengembalikan stok hadiah dan langsung memutar lagi.
+
+## Keamanan login
+- 5 kali salah password/aktivasi mengunci akun peserta atau panitia 10 menit. Admin direm per alamat IP.
+- Panitia yang dinonaktifkan langsung tidak bisa scan.
+
+## Update dari versi lama
+1. Salin SEMUA isi folder `app/` dan `lib/` dari versi ini (timpa), lalu hapus `app/globals.css` lama. Stylesheet sekarang bernama `app/theme.css`.
+2. Jalankan `supabase/migration-v2.sql` di SQL Editor Supabase.
+3. Hentikan `npm run dev`, hapus folder `.next`, lalu jalankan lagi.
+
+## Check-in, kupon, dan login peserta
+- Mengaktifkan tiket (cek NIK, isi nomor HP, buat password) belum dihitung hadir. Check-in hanya tercatat saat panitia/admin memindai QR atau mengetik NIK/kode di `/staff`, atau admin menekan Check-in di `/admin/peserta`. Tanggal dan jam (WIB) check-in dan tiap penukaran kupon tersimpan dan tampil di admin, e-tiket peserta, dan file Excel.
+- Nomor HP diisi peserta saat membuat password dan dipakai lagi saat login (NIK + nomor HP + password). Reset password di admin juga mengosongkan nomor HP, jadi peserta mengisinya ulang.
+
+## Undian: jatah hadiah
+- `/admin/pengaturan`: Jatah hadiah per karyawan (bawaan 1). Per orang bisa diubah di `/admin/peserta` > Ubah. Peserta yang jatahnya penuh tidak ikut undian lagi; satu orang tidak bisa menang hadiah yang sama dua kali.
+- Di layar undian, hadiah yang habis pindah ke bawah dan berwarna pudar; jika diklik muncul pemberitahuan "Hadiah ... sudah habis".

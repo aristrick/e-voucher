@@ -1,14 +1,16 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { post, fmtTime, fmtFull } from '@/lib/client';
 
 export default function Staff() {
   const [mode, setMode] = useState('checkin'), [coupon, setCoupon] = useState(''), [coupons, setCoupons] = useState([]);
-  const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false);
-  const [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState('');
+  const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false), [booth, setBooth] = useState('');
+  const [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState(''), [hist, setHist] = useState([]);
   const busy = useRef(false), ref = useRef({}), timer = useRef(null);
-  ref.current = { mode, coupon };
+  ref.current = { mode, coupon, booth };
 
-  const call = (body) => fetch('/api/staff', { method: 'POST', body: JSON.stringify(body) });
+  useEffect(() => { setBooth(localStorage.getItem('booth') || ''); }, []);
+  const saveBooth = (v) => { setBooth(v); localStorage.setItem('booth', v); };
 
   // tutup popup, lalu izinkan scan berikutnya (jeda singkat agar QR yang sama tidak terbaca ulang)
   const release = () => {
@@ -18,6 +20,7 @@ export default function Staff() {
   };
   const show = (d) => {
     setRes(d);
+    setHist((h) => [{ ...d, at: new Date().toISOString(), aksi: d.aksi || ref.current.mode }, ...h].slice(0, 10));
     navigator.vibrate?.(d.ok ? 80 : [80, 60, 80]);
     clearTimeout(timer.current);
     timer.current = setTimeout(release, 3000);
@@ -26,27 +29,19 @@ export default function Staff() {
   const act = async (c) => {
     if (busy.current || !c) return;
     busy.current = true;
-    try {
-      const r = await call({ action: ref.current.mode, code: c, coupon_id: Number(ref.current.coupon) });
-      if (r.status === 401) { location.href = '/login'; return; }
-      const d = await r.json().catch(() => ({ ok: false, msg: 'Server bermasalah (' + r.status + '), scan lagi' }));
-      show(d);
-    } catch {
-      show({ ok: false, msg: 'Koneksi bermasalah, scan lagi' });
-    }
+    const r = await post('/api/staff', { action: ref.current.mode, code: c, coupon_id: Number(ref.current.coupon), booth: ref.current.booth });
+    if (r.status === 401) { location.href = '/login'; return; }
+    show(r.status === 0 ? { ok: false, msg: 'Koneksi bermasalah, scan lagi' } : { ...r, ok: !!r.ok, msg: r.msg || r.error || 'Server bermasalah, scan lagi' });
   };
 
   useEffect(() => {
     let alive = true;
     (async () => {
       while (alive) {
-        try {
-          const r = await call({ action: 'coupons' });
-          if (r.status === 401) { location.href = '/login'; return; }
-          const d = await r.json().catch(() => null);
-          if (r.ok && Array.isArray(d)) { setCoupons(d); setCoupon(d[0]?.id || ''); setOn(true); return; }
-          setLoadErr((d && d.error) || 'Server error ' + r.status);
-        } catch { setLoadErr('Koneksi bermasalah, mencoba lagi...'); }
+        const r = await post('/api/staff', { action: 'coupons' });
+        if (r.status === 401) { location.href = '/login'; return; }
+        if (r.ok && Array.isArray(r.coupons)) { setCoupons(r.coupons); setCoupon(r.coupons[0]?.id || ''); setOn(true); return; }
+        setLoadErr(r.error || 'Server error ' + r.status);
         await new Promise((x) => setTimeout(x, 3000));
       }
     })();
@@ -67,26 +62,40 @@ export default function Staff() {
     return () => { dead = true; try { if (s && s.isScanning) s.stop().catch(() => {}); } catch {} };
   }, [on]);
 
-  const out = async () => { await fetch('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }) }); location.href = '/login'; };
+  const out = async () => { await post('/api/auth', { action: 'logout' }); location.href = '/login'; };
+  const manual = () => { act(code); setCode(''); };
 
-  if (!on) return <div className="wrap">Memuat...{loadErr && <p>{loadErr}</p>}</div>;
+  if (!on) return <div className="wrap">Memuat...{loadErr && <div className="err">{loadErr}. Mencoba lagi...</div>}</div>;
+  const okCount = hist.filter((h) => h.ok).length;
   return (
     <div className="wrap">
       <div className="row" style={{ marginBottom: 12 }}>
-        <button className={'btn b' + (mode === 'checkin' ? ' sel' : '')} onClick={() => setMode('checkin')}>Check-in</button>
-        <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
-        <button className="btn y" onClick={out}>Keluar</button>
+        <span className="gap">
+          <button className={'btn b' + (mode === 'checkin' ? ' sel' : '')} onClick={() => setMode('checkin')}>Check-in</button>
+          <button className={'btn b' + (mode === 'redeem' ? ' sel' : '')} onClick={() => setMode('redeem')}>Redeem</button>
+        </span>
+        <button className="btn sm y" onClick={out}>Keluar</button>
       </div>
-      {mode === 'redeem' && (coupons.length
-        ? <select value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>
-        : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>)}
+      {mode === 'redeem' && <>
+        {coupons.length
+          ? <select aria-label="Kupon yang ditukar" value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>
+          : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>}
+        <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />
+      </>}
       <div id="cam" />
-      {camErr && <p>{camErr}</p>}
+      {camErr && <div className="err">{camErr}</div>}
       <div className="card" style={{ marginTop: 16 }}>
-        <input placeholder="Kamera gagal? Ketik NIK atau kode tiket" value={code} onChange={(e) => setCode(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') { act(code); setCode(''); } }} />
-        <button className="btn y" onClick={() => { act(code); setCode(''); }}>Proses manual</button>
+        <input aria-label="NIK atau kode tiket" placeholder="Kamera gagal? Ketik NIK atau kode tiket" value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && manual()} />
+        <button className="btn y block" onClick={manual}>Proses manual</button>
       </div>
+
+      {hist.length > 0 && <div className="card"><div className="row"><h2>Riwayat scan</h2><span className="mute">{okCount} berhasil</span></div>
+        {hist.map((h, i) => (
+          <div className="row" key={i} style={{ margin: '8px 0' }}>
+            <span><b>{h.nama || 'Tidak dikenal'}</b><div className="mute">{h.aksi === 'redeem' ? 'Redeem' + (h.kupon ? ' ' + h.kupon : '') : 'Check-in'} · {fmtTime(h.at)}{h.ok ? '' : ' · ' + h.msg}</div></span>
+            <span className={'chip' + (h.ok ? '' : ' no')}>{h.ok ? 'Berhasil' : 'Gagal'}</span>
+          </div>))}
+      </div>}
 
       {res && (
         <div className="pop" onClick={release}>
@@ -97,6 +106,7 @@ export default function Staff() {
             {res.nik && <div>NIK {res.nik}{res.cabang ? ' · ' + res.cabang : ''}</div>}
             {res.kupon && <div className="pop-item">{res.kupon}</div>}
             <div className="pop-msg">{res.msg}</div>
+            {res.at && <div className="pop-time">{res.ok ? 'Tercatat' : 'Sebelumnya'}: {fmtFull(res.at)}</div>}
             <div className="pop-hint">Ketuk untuk menutup</div>
           </div>
         </div>

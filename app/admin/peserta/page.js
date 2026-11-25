@@ -8,7 +8,7 @@ const SIZE = 50;
 const EMPTY = { id: null, nik: '', nama: '', divisi: '', cabang: '', max_hadiah: '' };
 
 export default function Peserta() {
-  const { ask } = useUI();
+  const { ask, askText } = useUI();
   const [q, setQ] = useState(''), [qq, setQq] = useState(''), [status, setStatus] = useState(''), [page, setPage] = useState(1);
   const [imp, setImp] = useState(false), [rows, setRows] = useState([]), [fname, setFname] = useState(''), [ferr, setFerr] = useState('');
   const [form, setForm] = useState(null), [busy, setBusy] = useState(false), [rs, setRs] = useState(null);
@@ -33,6 +33,13 @@ export default function Peserta() {
     try { const { exportPeserta } = await import('@/lib/excel'); await exportPeserta(r); } catch { setMsg({ ok: false, t: 'Gagal membuat file Excel' }); }
     setBusy(false);
   };
+  const delAll = async () => {
+    const t = await askText(`Ini menghapus SEMUA peserta${d?.total ? ` (${d.total} orang)` : ''} beserta riwayat kupon dan undian mereka. Tidak bisa dibatalkan. Sebaiknya ekspor Excel dulu. Ketik HAPUS untuk melanjutkan.`, { title: 'Hapus semua peserta?', okText: 'Hapus semua', danger: true });
+    if (t == null) return;
+    if (t.trim() !== 'HAPUS') return setMsg({ ok: false, t: 'Dibatalkan: kata konfirmasi harus HAPUS' });
+    const r = await run({ action: 'deleteAllEmployees', confirm: 'HAPUS' });
+    if (r.ok) { setMsg({ ok: true, t: `${r.removed} peserta dihapus` }); setPage(1); setQ(''); }
+  };
   const template = async () => { const { downloadTemplate } = await import('@/lib/excel'); downloadTemplate(); };
 
   const saveForm = async () => {
@@ -45,7 +52,7 @@ export default function Peserta() {
   return (
     <>
       <Busy on={loading && !!d} />
-      <Title right={<><button className="btn sm w" disabled={busy} onClick={doExport}>{busy ? 'Menyiapkan...' : 'Ekspor Excel'}</button><button className="btn sm w" onClick={() => setImp(true)}>Import Excel</button><button className="btn" onClick={() => { setMsg(null); setForm({ ...EMPTY }); }}>Tambah peserta</button></>}>Peserta</Title>
+      <Title right={<><button className="btn sm w" disabled={busy} onClick={doExport}>{busy ? 'Menyiapkan...' : 'Ekspor Excel'}</button><button className="btn sm w" onClick={() => setImp(true)}>Import Excel</button><button className="btn sm r" disabled={!d?.total} onClick={delAll}>Hapus semua</button><button className="btn" onClick={() => { setMsg(null); setForm({ ...EMPTY }); }}>Tambah peserta</button></>}>Peserta</Title>
       <Msg />
       <div className="card">
         <div className="toolbar">

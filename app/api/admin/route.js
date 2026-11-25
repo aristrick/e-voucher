@@ -149,6 +149,12 @@ const H = {
     return { removed: r.data.length };
   },
   async markSent(b) { must(await db.from('employees').update({ wa_sent_at: b.sent === false ? null : iso() }).eq('nik', clean(b.nik))); return {}; },
+  // hapus SEMUA peserta (kupon dan undian mereka ikut terhapus); wajib kata konfirmasi HAPUS
+  async deleteAllEmployees(b) {
+    if (clean(b.confirm) !== 'HAPUS') throw new Error('Ketik HAPUS untuk mengonfirmasi');
+    const r = must(await db.from('employees').delete({ count: 'exact' }).not('id', 'is', null));
+    return { removed: r.count || 0 };
+  },
   async deleteEmployee(b) { must(await db.from('employees').delete().eq('nik', clean(b.nik))); return {}; },
 
   // ---------- panitia ----------
@@ -260,6 +266,7 @@ const LOGS = {
   resetUndian: ['undian', (b, r, c) => `Reset undian ${nm(c)}` + (b.hadiah_nama ? ` (${String(b.hadiah_nama).slice(0, 40)})` : ' (semua undian)') + `: ${r.removed} catatan dihapus`],
   resetPeserta: ['peserta', (b, r, c) => `Reset password peserta ${nm(c)}`],
   import: ['peserta', (b, r) => `Import Excel: ${r.imported} peserta` + (r.skipped ? `, ${r.skipped} dilewati` : '') + (r.duplicates ? `, ${r.duplicates} NIK ganda` : '')],
+  deleteAllEmployees: ['peserta', (b, r) => `Menghapus SEMUA peserta (${r.removed} peserta, beserta kupon dan undiannya)`],
   exportEmployees: ['peserta', (b, r) => `Ekspor Excel (${r.rows?.length || 0} peserta)`],
   addStaff: ['panitia', (b) => `Menambah akun panitia ${clean(b.username).toLowerCase()}`],
   toggleStaff: ['panitia', (b, r, c) => `${b.aktif ? 'Mengaktifkan' : 'Menonaktifkan'} panitia ${c.staff?.username || ''}`],

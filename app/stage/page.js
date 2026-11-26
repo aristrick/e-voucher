@@ -76,7 +76,7 @@ function paint(cv, segs, rot) {
 export default function Stage() {
   const [d, setD] = useState(null), [lerr, setLerr] = useState(''), [prize, setPrize] = useState(''), [err, setErr] = useState('');
   const [segs, setSegs] = useState(IDLE), [run, setRun] = useState(false), [win, setWin] = useState(null), [boom, setBoom] = useState(false), [mute, setMute] = useState(false), [note, setNote] = useState('');
-  const nt = useRef(null), cv = useRef(null), rot = useRef(0), raf = useRef(0);
+  const nt = useRef(null), cv = useRef(null), rot = useRef(0), raf = useRef(0), lock = useRef(false);
   useEffect(() => { setMute(sfx.isMuted()); }, []);
 
   const load = useCallback(async () => {
@@ -114,30 +114,34 @@ export default function Stage() {
   // pid diisi saat undi ulang: id hadiah dikirim langsung, tidak dibaca dari state yang bisa sudah berubah/usang
   const spin = async (pid) => {
     const forced = typeof pid === 'number';
-    if (run) return;
+    // kunci lewat ref (langsung berlaku, tidak tergantung render): hanya satu undian berjalan pada satu waktu
+    if (!forced && (lock.current || run)) return;
     if (!forced && (!prize || d.eligible < 1)) return;
     const prizeId = forced ? pid : Number(prize);
+    lock.current = true;
     setErr(''); setWin(null); setBoom(false); setRun(true);
     sfx.unlock(); sfx.spinStart();
     const r = await adm({ action: 'draw', prize_id: prizeId });
-    if (!r.ok) { setRun(false); return setErr(r.error); }
+    if (!r.ok) { lock.current = false; setRun(false); return setErr(r.error); }
     r.winner.prize_id = prizeId; r.winner.prize_nama = d.prizes.find((x) => x.id === prizeId)?.nama || '';
     const list = shuffle([...(r.decoys || []), r.winner]);
     const idx = list.findIndex((x) => x === r.winner);
     rot.current = 0; setSegs(list);
-    requestAnimationFrame(() => animate(list, idx, () => { sfx.win(); setWin(r.winner); setBoom(true); setRun(false); load(); setTimeout(() => setBoom(false), 5000); }));
+    requestAnimationFrame(() => animate(list, idx, () => { sfx.win(); setWin(r.winner); setBoom(true); lock.current = false; setRun(false); load(); setTimeout(() => setBoom(false), 5000); }));
   };
   const forfeit = async () => {
-    const id = win.draw_id, pid = win.prize_id; setWin(null);
+    if (lock.current) return;
+    const id = win.draw_id, pid = win.prize_id;
+    lock.current = true; setRun(true); setWin(null);   // tombol Putar roda dan tombol Spasi terkunci selama proses undi ulang
     const r = await adm({ action: 'forfeit', draw_id: id });
-    if (!r.ok) return setErr(r.error);
+    if (!r.ok) { lock.current = false; setRun(false); return setErr(r.error); }
     // pastikan stok benar-benar sudah kembali di data terbaru sebelum memutar lagi (bukan sekadar menunggu waktu)
     let fresh = null;
     for (let i = 0; i < 3 && !fresh; i++) {
       const x = await load(); const p = x && x.prizes.find((y) => y.id === pid);
       if (p && p.stok > p.won && x.eligible > 0) fresh = x; else await new Promise((t) => setTimeout(t, 400));
     }
-    if (!fresh) return setErr('Stok hadiah belum terbarui atau tidak ada peserta tersisa. Coba putar lagi sebentar lagi.');
+    if (!fresh) { lock.current = false; setRun(false); return setErr('Stok hadiah belum terbarui atau tidak ada peserta tersisa. Coba putar lagi sebentar lagi.'); }
     setPrize(String(pid));           // dropdown kembali ke hadiah yang diundi ulang
     setTimeout(() => spin(pid), 300);
   };

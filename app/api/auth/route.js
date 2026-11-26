@@ -13,7 +13,7 @@ const fail = (table, r) => {
 const good = (table, r) => (r.fail_count || r.locked_until) ? db.from(table).update({ fail_count: 0, locked_until: null }).eq('id', r.id) : null;
 // nomor HP disamakan formatnya: 0812..., +62812..., 62812... dianggap sama
 const phone = (v) => { let d = String(v || '').replace(/\D/g, ''); if (d.startsWith('62')) d = '0' + d.slice(2); else if (d && !d.startsWith('0')) d = '0' + d; return d; };
-const mask = (s) => String(s || '').split(' ').map((w) => w[0] + '*'.repeat(Math.max(w.length - 1, 0))).join(' ');
+const mask = (s) => String(s || '').split(/\s+/).filter(Boolean).map((w) => w[0] + '*'.repeat(Math.max(w.length - 1, 0))).join(' ');
 
 export async function POST(req) {
   if (!process.env.SESSION_SECRET) return json({ error: 'SESSION_SECRET belum diisi di Environment Variables' }, 500);

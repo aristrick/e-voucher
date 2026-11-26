@@ -13,7 +13,7 @@ export default function Home() {
   const [t, setT] = useState(null), [ev, setEv] = useState(null), [ready, setReady] = useState(false), [toast, setToast] = useState('');
   const [step, setStep] = useState(1), [info, setInfo] = useState(null), [f, setF] = useState({ nik: '', hp: '', pw: '', pw2: '' });
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
-  const last = useRef(null), tt = useRef(null), partied = useRef(false);
+  const last = useRef(null), tt = useRef(null), partied = useRef(false), inflight = useRef(false), lastLoad = useRef(0);
   const [party, setParty] = useState(false), [splash, setSplash] = useState(false), [fresh, setFresh] = useState([]), [enter, setEnter] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   // Saat tiket pertama kali tampil (setelah login atau saat halaman dibuka), selalu mulai dari bagian paling atas tiket.
@@ -27,10 +27,16 @@ export default function Home() {
   const say = (m) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(''), 5000); };
 
   const load = async () => {
+    if (inflight.current) return true;
+    inflight.current = true; lastLoad.current = Date.now();
+    try { return await loadInner(); } finally { inflight.current = false; }
+  };
+  // mengembalikan false bila gagal (sinyal/server), supaya polling bisa mundur (backoff)
+  const loadInner = async () => {
     const r = await post('/api/ticket');
-    if (r.status === 401) { setT(null); last.current = null; localStorage.removeItem('tiket'); return; }
-    if (r.status === 0) return setErr('Tidak ada sinyal. Tiket tersimpan tetap bisa dipakai.');
-    if (!r.ok) return setErr(r.error);
+    if (r.status === 401) { setT(null); last.current = null; localStorage.removeItem('tiket'); return true; }
+    if (r.status === 0) { setErr('Tidak ada sinyal. Tiket tersimpan tetap bisa dipakai.'); return false; }
+    if (!r.ok) { setErr(r.error); return false; }
     const prev = last.current;
     if (prev) {
       const baru = r.coupons.filter((c) => c.redeemed_at && !(prev.coupons || []).find((x) => x.id === c.id)?.redeemed_at);
@@ -40,17 +46,37 @@ export default function Home() {
       else if (r.win && !prev.win) say('Selamat, kamu memenangkan ' + r.win + '!');
     }
     last.current = r; setErr(''); setT(r); localStorage.setItem('tiket', JSON.stringify(r));
+    return true;
   };
 
   useEffect(() => {
     const c = cached(); if (c) { setT(c); last.current = c; }
     new Image().src = '/loading.gif';
     fetch('/api/event').then((r) => r.json()).then(setEv).catch(() => {});
-    load().finally(() => setReady(true));
-    const i = setInterval(() => { if (!document.hidden) load(); }, 10000);
-    const vis = () => { if (!document.hidden) { load(); fetch('/api/event').then((r) => r.json()).then(setEv).catch(() => {}); } };
+    // Polling tiap ~25 detik (+ acak 0-5 detik agar 500 HP tidak serentak). Gagal -> jeda dilipat dua, maksimal 2 menit; sukses -> kembali normal.
+    let stop = false, timer = null, fails = 0;
+    const BASE = 25000, MAX = 120000;
+    const schedule = () => {
+      if (stop) return;
+      const wait = Math.min(BASE * 2 ** fails, MAX) + Math.random() * 5000;
+      timer = setTimeout(tick, wait);
+    };
+    const tick = async () => {
+      if (stop) return;
+      if (document.hidden) return schedule();
+      const ok = await load().catch(() => false);
+      fails = ok ? 0 : Math.min(fails + 1, 3);
+      schedule();
+    };
+    load().then((ok) => { fails = ok ? 0 : 1; }).catch(() => { fails = 1; }).finally(() => { setReady(true); schedule(); });
+    // kembali membuka tab: muat ulang, tapi paling cepat 10 detik dari muatan terakhir
+    const vis = () => {
+      if (document.hidden) return;
+      if (Date.now() - lastLoad.current > 10000) load().then((ok) => { if (ok) fails = 0; }).catch(() => {});
+      fetch('/api/event').then((r) => r.json()).then(setEv).catch(() => {});
+    };
     document.addEventListener('visibilitychange', vis);
-    return () => { clearInterval(i); document.removeEventListener('visibilitychange', vis); };
+    return () => { stop = true; clearTimeout(timer); document.removeEventListener('visibilitychange', vis); };
   }, []);
 
   // pemenang undian: confetti sekali setiap login atau buka tiket, dan langsung saat kemenangan baru masuk

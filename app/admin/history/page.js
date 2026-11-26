@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useLoad, Pager, Loading, Busy, Title } from '../ui';
 import { fmtDateTime, wib } from '@/lib/client';
 
-const KAT = [['', 'Semua'], ['checkin', 'Check-in'], ['redeem', 'Redeem'], ['peserta', 'Peserta'], ['undian', 'Undian'], ['hadiah', 'Hadiah'], ['kupon', 'Kupon'], ['panitia', 'Panitia'], ['pengaturan', 'Pengaturan']];
+const KAT = [['', 'Semua'], ['checkin', 'Check-in'], ['redeem', 'Redeem'], ['peserta', 'Peserta'], ['undian', 'Undian'], ['hadiah', 'Hadiah'], ['kupon', 'Kupon'], ['survey', 'Survey'], ['panitia', 'Panitia'], ['pengaturan', 'Pengaturan']];
 const LABEL = Object.fromEntries(KAT.filter(([v]) => v));
 const STATUS = [['', 'Semua hasil'], ['ok', 'Berhasil'], ['gagal', 'Gagal']];
 const SIZE = 50;

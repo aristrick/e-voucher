@@ -4,7 +4,7 @@ import { post } from '@/lib/client';
 import { UIProvider, useUI } from './ui';
 const NAV = [
   ['/admin', 'Ringkasan'], ['/admin/peserta', 'Peserta'], ['/admin/panitia', 'Panitia'],
-  ['/admin/kupon', 'Kupon'], ['/admin/hadiah', 'Hadiah'], ['/admin/pemenang', 'Pemenang'], ['/admin/history', 'History'], ['/admin/pengaturan', 'Pengaturan'],
+  ['/admin/kupon', 'Kupon'], ['/admin/hadiah', 'Hadiah'], ['/admin/pemenang', 'Pemenang'], ['/admin/survey', 'Survey'], ['/admin/history', 'History'], ['/admin/pengaturan', 'Pengaturan'],
 ];
 export default function Shell({ children }) {
   const path = usePathname();

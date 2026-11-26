@@ -184,7 +184,7 @@ td.act,th.act{width:1%;white-space:nowrap;text-align:right}
 /* kategori riwayat */
 .kat{display:inline-block;min-width:92px;text-align:center;border:2px solid #000;border-radius:0;padding:1px 8px;font-size:12px;font-weight:700;background:#fff;white-space:nowrap}
 .kat.checkin{background:var(--lime)}.kat.redeem{background:var(--blue)}.kat.peserta{background:var(--yellow)}
-.kat.panitia{background:var(--purple)}.kat.kupon{background:var(--pink)}.kat.hadiah{background:#ffb877}.kat.undian{background:#9ff0d0}.kat.pengaturan{background:#e5e5e5}
+.kat.panitia{background:var(--purple)}.kat.kupon{background:var(--pink)}.kat.hadiah{background:#ffb877}.kat.undian{background:#9ff0d0}.kat.pengaturan{background:#e5e5e5}.kat.survey{background:#b8f0ff}
 .feed{list-style:none;margin:0;padding:0}
 .feed li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:2px dashed #000}
 .feed li:last-child{border-bottom:0}

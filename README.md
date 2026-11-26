@@ -7,6 +7,8 @@ Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon 
 - `/login` login panitia dan admin.
 - `/staff` panitia: mode Check-in (pintu) dan Redeem (booth), nama booth, riwayat scan.
 - `/admin` ringkasan. Sub-halaman: `/admin/peserta` (cari, filter, tambah/ubah peserta, check-in manual, import dan ekspor Excel), `/admin/panitia`, `/admin/kupon`, `/admin/hadiah`, `/admin/pemenang`, `/admin/history` (riwayat semua aktivitas), `/admin/pengaturan` (nama, tanggal, lokasi acara).
+- `/survey` peserta: survey umpan balik acara (muncul sebagai kartu "Survey acara" di tiket saat survey dibuka admin).
+- `/admin/survey` admin: buka/tutup survey, hasil per pertanyaan, ekspor Excel, dan editor pertanyaan.
 - `/stage` admin: layar undian spin wheel (Spasi untuk memutar).
 - `/api/health` cek apakah variabel environment terisi (tidak menampilkan nilainya).
 
@@ -16,7 +18,7 @@ Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon 
 
 ## 1. Supabase
 1. Buat project di supabase.com (pilih region Singapore).
-2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`, `supabase/migration-v4.sql`, `supabase/migration-v6.sql`.
+2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`, `supabase/migration-v4.sql`, `supabase/migration-v6.sql`, `supabase/migration-v9.sql`.
    Jika database sudah berjalan dari versi lama, jalankan `migration-v2.sql` lalu `migration-v3.sql` (v3 wajib untuk jatah hadiah per karyawan). Tanpa file ini, dashboard dan undian tidak jalan.
 3. Project Settings > API Keys: salin Project URL dan secret/service_role key. RAHASIA, jangan di-commit.
 
@@ -103,3 +105,11 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - Jeda animasi: minimal satu putaran penuh saat peserta login dan saat admin menyimpan perubahan; tidak menunggu lebih lama dari perlu (lihat `holdLoop` di `lib/client.js`).
 - Kupon yang sudah dipakai: nama dicoret merah (tampilan kartu kupon sama seperti v6, tanpa pixel).
 - Favicon pixel baru (`app/icon.svg`). Tidak ada perubahan SQL.
+
+## Update v9: survey setelah acara
+- WAJIB: jalankan `supabase/migration-v9.sql` sekali di SQL Editor Supabase. Isinya membuat tabel `survey_questions` dan `survey_responses` serta mengisi 8 pertanyaan awal yang mengikuti Google Form Umpan Balik Employee Gathering. Tanpa ini halaman Survey menampilkan petunjuk migrasi.
+- Survey bawaannya TERTUTUP. Buka lewat `/admin/survey` > Buka survey, biasanya setelah acara selesai. Saat dibuka, peserta yang login melihat kartu "Survey acara" di tiketnya (tab yang sudah terbuka memuat ulang info ini saat dibuka kembali).
+- NIK, nama, dan divisi tidak ditanyakan lagi di survey karena sudah diketahui dari akun peserta. Satu peserta punya satu jawaban; selama survey dibuka peserta bisa mengubahnya.
+- Pertanyaan bisa ditambah, diubah, dan dihapus di `/admin/survey` > Pertanyaan. Tiga jenis: Skala 1-5 (keterangan angka 1 dan 5 bisa diubah), Jawaban teks, dan Pilihan (opsi bisa ditambah/dikurangi, ada opsi Lainnya yang diketik sendiri). Tiap pertanyaan bisa diatur wajib atau tidak.
+- Hasil di `/admin/survey` > Hasil: skala tampil sebagai rata-rata dan sebaran, pilihan sebagai jumlah per opsi, teks sebagai daftar jawaban beserta nama pengisi. Tombol Ekspor Excel menghasilkan satu baris per peserta, satu kolom per pertanyaan.
+- Mengubah atau menghapus pertanyaan tidak menghapus jawaban lama di database. Perubahan survey tercatat di History (kategori Survey).

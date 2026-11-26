@@ -48,7 +48,7 @@ export default function Home() {
     fetch('/api/event').then((r) => r.json()).then(setEv).catch(() => {});
     load().finally(() => setReady(true));
     const i = setInterval(() => { if (!document.hidden) load(); }, 10000);
-    const vis = () => { if (!document.hidden) load(); };
+    const vis = () => { if (!document.hidden) { load(); fetch('/api/event').then((r) => r.json()).then(setEv).catch(() => {}); } };
     document.addEventListener('visibilitychange', vis);
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', vis); };
   }, []);
@@ -136,6 +136,7 @@ export default function Home() {
               <span style={{ textAlign: 'right' }}><span className={'chip' + (c.redeemed_at ? ' off' : '')}>{c.redeemed_at ? 'Sudah ditukar' : 'Tersedia'}</span>{c.redeemed_at && <div className="mute">{fmtFull(c.redeemed_at)}</div>}</span></div>
           ))}
         </div>
+        {ev?.survey && <div className="card"><h2>Survey acara</h2><p className="mute" style={{ marginTop: 0 }}>Bantu kami jadi lebih baik dengan mengisi umpan balik singkat tentang acara ini.</p><a className="btn block" href="/survey">Isi survey</a></div>}
         {err && <div className="err">{err}</div>}
       </div>
     );

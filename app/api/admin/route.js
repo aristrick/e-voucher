@@ -3,6 +3,7 @@ import { db, role, json, MIGRATE_MSG } from '@/lib/db';
 import { hash } from '@/lib/auth';
 import { getSettings, DEFAULTS } from '@/lib/settings';
 import { actorOf, logAct } from '@/lib/log';
+import { SURVEY_MSG, surveyOpen, cleanQuestion } from '@/lib/survey';
 export const dynamic = 'force-dynamic';
 
 const must = (r) => {
@@ -13,6 +14,8 @@ const must = (r) => {
   }
   return r;
 };
+// Sama seperti must, tetapi tabel survey yang belum dibuat menampilkan petunjuk migration-v9.sql
+const sv = (r) => { if (/does not exist|schema cache/i.test(r.error?.message || '')) throw new Error(SURVEY_MSG); return must(r); };
 // Cek sekali apakah migration-v2.sql sudah dijalankan (query HEAD tidak membawa pesan error, jadi dicek lewat SELECT biasa)
 let ready = false;
 const probe = async () => {
@@ -257,6 +260,30 @@ const H = {
     };
   },
 
+  // ---------- survey ----------
+  async survey() {
+    const questions = sv(await db.from('survey_questions').select('id,tipe,teks,wajib,opsi,lainnya,label_min,label_maks').order('urutan').order('id')).data;
+    const rows = [];
+    for (let i = 0; ; i += 1000) {
+      const r = sv(await db.from('survey_responses').select('id,jawaban,updated_at,employees(nik,nama,cabang,divisi)').order('updated_at').order('id').range(i, i + 999)).data;
+      rows.push(...r); if (r.length < 1000) break;
+    }
+    const [open, total] = await Promise.all([surveyOpen(), n(head('employees'))]);
+    return { open, total, questions, responses: rows.map((r) => ({ ...r.employees, jawaban: r.jawaban, at: r.updated_at })) };
+  },
+  async setSurveyOpen(b) { must(await db.from('settings').upsert({ key: 'survey_open', value: b.open ? '1' : '0' }, { onConflict: 'key' })); return {}; },
+  async addSurveyQuestion(b) {
+    const q = cleanQuestion(b);
+    const last = sv(await db.from('survey_questions').select('urutan').order('urutan', { ascending: false }).limit(1)).data[0];
+    sv(await db.from('survey_questions').insert({ ...q, urutan: (last?.urutan || 0) + 1 })); return {};
+  },
+  async updateSurveyQuestion(b) {
+    const r = sv(await db.from('survey_questions').update(cleanQuestion(b)).eq('id', Number(b.id)).select('id'));
+    if (!r.data.length) throw new Error('Pertanyaan tidak ditemukan');
+    return {};
+  },
+  async deleteSurveyQuestion(b) { sv(await db.from('survey_questions').delete().eq('id', Number(b.id))); return {}; },
+
   // ---------- riwayat aktivitas ----------
   async history(b) {
     const size = Math.min(Math.max(Number(b.size) || 30, 10), 100);
@@ -316,6 +343,10 @@ const LOGS = {
   draw: ['undian', (b, r, c) => `Undian ${c.prize?.nama || 'hadiah'}: pemenang ${r.winner?.nama}`],
   forfeit: ['undian', (b, r, c) => `${c.draw?.employees?.nama || 'Pemenang'} ditandai tidak hadir (${c.draw?.prizes?.nama || 'hadiah'}), stok kembali`],
   saveSettings: ['pengaturan', () => 'Menyimpan pengaturan acara'],
+  setSurveyOpen: ['survey', (b) => `${b.open ? 'Membuka' : 'Menutup'} survey acara`],
+  addSurveyQuestion: ['survey', (b) => `Menambah pertanyaan survey: ${clean(b.teks).slice(0, 80)}`],
+  updateSurveyQuestion: ['survey', (b) => `Mengubah pertanyaan survey: ${clean(b.teks).slice(0, 80)}`],
+  deleteSurveyQuestion: ['survey', (b) => `Menghapus pertanyaan survey: ${clean(b.teks).slice(0, 80)}`],
 };
 
 // Ambil nama yang dibutuhkan untuk kalimat riwayat sebelum aksi menghapus atau mengubahnya

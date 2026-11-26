@@ -9,6 +9,52 @@ const IDLE = Array.from({ length: 12 }, () => ({ nama: '?' }));
 const shuffle = (a) => { const b = [...a]; for (let i = b.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [b[i], b[j]] = [b[j], b[i]]; } return b; };
 const short = (s, n = 16) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
+// Dropdown hadiah buatan sendiri: nama panjang turun ke baris berikutnya (select bawaan browser memotongnya).
+function PrizePick({ prizes, value, onChange, disabled }) {
+  const [open, setOpen] = useState(false), [hi, setHi] = useState(0), box = useRef(null);
+  const cur = prizes.find((p) => String(p.id) === String(value));
+  const left = (p) => Math.max(p.stok - p.won, 0);
+  useEffect(() => {
+    if (!open) return;
+    const f = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
+    document.addEventListener('pointerdown', f); return () => document.removeEventListener('pointerdown', f);
+  }, [open]);
+  const openList = () => { setHi(Math.max(prizes.findIndex((p) => String(p.id) === String(value)), 0)); setOpen(true); };
+  const pick = (p) => {
+    if (!p || left(p) < 1) return;
+    onChange(String(p.id)); setOpen(false);
+    box.current?.querySelector('button')?.blur(); // supaya tombol Spasi langsung bisa memutar roda
+  };
+  const onKey = (e) => {
+    if (disabled) return;
+    if (!open) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); openList(); } return; }
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setHi((i) => Math.min(i + 1, prizes.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((i) => Math.max(i - 1, 0)); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(prizes[hi]); }
+    else if (e.key === 'Tab') setOpen(false);
+  };
+  return (
+    <div className="pzd" ref={box}>
+      <button type="button" id="pz" className="pzd-btn" disabled={disabled} aria-haspopup="listbox" aria-expanded={open} aria-controls="pz-list"
+        aria-activedescendant={open ? `pz-o${hi}` : undefined} onClick={() => (open ? setOpen(false) : openList())} onKeyDown={onKey}>
+        <span className="pzd-txt">{cur ? <><b>{cur.nama}</b><small>sisa {left(cur)} dari {cur.stok}</small></> : <b>Semua hadiah sudah habis</b>}</span>
+        <span className="pzd-arr" aria-hidden="true" />
+      </button>
+      {open && (
+        <ul id="pz-list" role="listbox" className="pzd-list" aria-labelledby="pz">
+          {prizes.map((p, i) => (
+            <li key={p.id} id={`pz-o${i}`} role="option" aria-selected={String(p.id) === String(value)} aria-disabled={left(p) < 1}
+              className={(i === hi ? 'hi ' : '') + (left(p) < 1 ? 'out' : '')} onPointerEnter={() => setHi(i)} onClick={() => pick(p)}>
+              <b>{p.nama}</b><small>{left(p) < 1 ? 'Habis' : `sisa ${left(p)} dari ${p.stok}`}</small>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function paint(cv, segs, rot) {
   const c = cv.getContext('2d'), n = segs.length, arc = TAU / n, m = SIZE / 2;
   c.clearRect(0, 0, SIZE, SIZE);
@@ -104,18 +150,13 @@ export default function Stage() {
       </div>
 
       <div>
-        <div className="card">
+        <div className="card pzcard">
           <label className="lbl" htmlFor="pz" style={{ marginTop: 0 }}>Hadiah yang diundi</label>
           {d.prizes.length === 0
             ? <p>Belum ada hadiah. <a href="/admin/hadiah">Tambah hadiah</a></p>
-            : sorted.map((p) => {
-              const left = Math.max(p.stok - p.won, 0), out = left < 1;
-              return (
-                <button key={p.id} type="button" disabled={run} className={'pz' + (out ? ' out' : '') + (!out && String(p.id) === String(prize) ? ' sel' : '')} aria-pressed={String(p.id) === String(prize)}
-                  onClick={() => { if (out) { setNote(`Hadiah "${p.nama}" sudah habis`); clearTimeout(nt.current); nt.current = setTimeout(() => setNote(''), 3500); } else setPrize(String(p.id)); }}>
-                  <span>{p.nama}</span><small>{out ? 'Habis' : `sisa ${left} dari ${p.stok}`}</small>
-                </button>);
-            })}
+            : (
+              <PrizePick prizes={sorted} value={prize} onChange={setPrize} disabled={run} />
+            )}
           <button className="btn block" style={{ fontSize: 24, padding: '14px 16px', marginTop: 8 }} disabled={run || !prize || sisa < 1 || d.eligible < 1} onClick={spin}>{run ? 'Roda berputar...' : 'Putar roda'}</button>
           {d.prizes.length > 0 && !prize && <div className="err">Semua hadiah sudah habis diundi.</div>}
           {d.eligible < 1 && <div className="err">Tidak ada peserta yang tersisa.</div>}

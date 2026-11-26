@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { useLoad, useAct, Modal, Loading, Title, useUI } from '../ui';
+import PwField from '../../pwfield';
 export default function Panitia() {
   const { ask } = useUI();
   const { data: d, err, reload } = useLoad({ action: 'staff' });
@@ -30,11 +31,11 @@ export default function Panitia() {
       {add && <Modal title="Tambah panitia" onClose={() => setAdd(false)}>
         <label className="lbl" htmlFor="su">Username</label><input id="su" autoCapitalize="none" value={f.username} onChange={set('username')} />
         <label className="lbl" htmlFor="sn">Nama</label><input id="sn" value={f.nama} onChange={set('nama')} />
-        <label className="lbl" htmlFor="sp">Password (min. 6 karakter)</label><input id="sp" type="password" value={f.password} onChange={set('password')} />
+        <label className="lbl" htmlFor="sp">Password (min. 6 karakter)</label><PwField id="sp" value={f.password} onChange={set('password')} />
         <Msg /><button className="btn" onClick={create}>Simpan</button>
       </Modal>}
       {rs && <Modal title={'Ganti password ' + rs.username} onClose={() => setRs(null)}>
-        <label className="lbl" htmlFor="np">Password baru (min. 6 karakter)</label><input id="np" type="password" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <label className="lbl" htmlFor="np">Password baru (min. 6 karakter)</label><PwField id="np" value={pw} onChange={(e) => setPw(e.target.value)} />
         <Msg /><button className="btn" onClick={reset}>Simpan password</button>
       </Modal>}
     </>

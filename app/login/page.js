@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { post } from '@/lib/client';
+import PwField from '../pwfield';
 export default function Login() {
   const [u, setU] = useState(''), [p, setP] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
   const go = async () => {
@@ -14,7 +15,7 @@ export default function Login() {
       <label className="lbl" htmlFor="u">Username</label>
       <input id="u" autoCapitalize="none" autoComplete="username" value={u} onChange={(e) => setU(e.target.value)} />
       <label className="lbl" htmlFor="p">Password</label>
-      <input id="p" type="password" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
+      <PwField id="p" autoComplete="current-password" value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} />
       {err && <div className="err">{err}</div>}
       <button className="btn block" disabled={busy} onClick={go}>{busy ? 'Masuk...' : 'Masuk'}</button></div>
       <a href="/">Kembali ke halaman tiket</a></div>

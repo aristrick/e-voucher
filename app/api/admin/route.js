@@ -261,7 +261,7 @@ const H = {
   async stageInfo() {
     const [prizes, hadir, el, recent] = await Promise.all([
       H.prizes(), n(head('employees').not('checked_in_at', 'is', null)), db.rpc('eligible_count'),
-      must(await db.from('draws').select('id,status,prizes(nama),employees(nama,nik)').order('drawn_at', { ascending: false }).limit(8)).data,
+      must(await db.from('draws').select('id,status,prizes(nama),employees(nama,nik)').order('drawn_at', { ascending: false }).limit(30)).data,
     ]);
     if (el.error) throw new Error(MIGRATE_MSG);
     return { prizes: prizes.prizes, eligible: el.data || 0, hadir, recent };

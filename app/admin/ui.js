@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { adm, holdLoop } from '@/lib/client';
+import { adm, holdLoop, post } from '@/lib/client';
 
 // Muat data dari /api/admin. Kalau gagal sebelum ada data, otomatis coba lagi tiap 3 detik.
 export function useLoad(body, every = 0) {
@@ -176,4 +176,26 @@ export const Loading = ({ err, kind = 'table', rows, cols }) => (
 );
 // garis kemajuan tipis di atas halaman saat data dimuat ulang (filter, ganti halaman)
 export const Busy = ({ on }) => (on ? <div className="topbar" aria-hidden="true" /> : null);
-export const Title = ({ children, right }) => <div className="ptitle"><h1>{children}</h1><div className="gap">{right}</div></div>;
+// Baris judul halaman admin. Kiri: judul. Kanan: tombol milik halaman (Segarkan, Tambah, dst.), garis pemisah, lalu menu cepat
+// (Layar undian, Scan, Keluar akun). Menu cepat dulu ada di dasar sidebar dan sering terpotong di layar yang pendek.
+export const Title = ({ children, right }) => {
+  const { ask } = useUI();
+  const out = async () => {
+    const ok = await ask('Yakin ingin keluar dari akun ini?', { title: 'Keluar?', okText: 'Ya, keluar' });
+    if (!ok) return;
+    await post('/api/auth', { action: 'logout' }); location.href = '/login';
+  };
+  return (
+    <div className="ptitle">
+      <h1>{children}</h1>
+      <div className="ptools">
+        {right && <><div className="gap">{right}</div><span className="psep" aria-hidden="true" /></>}
+        <div className="gap" role="group" aria-label="Menu cepat">
+          <a className="btn sm w" href="/stage">Layar undian</a>
+          <a className="btn sm w" href="/staff">Halaman scan</a>
+          <button className="btn sm r" onClick={out}>Keluar akun</button>
+        </div>
+      </div>
+    </div>
+  );
+};

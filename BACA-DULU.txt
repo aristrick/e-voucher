@@ -10,11 +10,16 @@ URUTAN
    app/page.js                     tiket peserta: polling 25 detik + banner hadiah di atas tiket
    app/theme.css                   gaya mode Hadiah, banner hadiah, layar undian 3 kolom, warna pemenang/tidak hadir
    app/staff/page.js               halaman panitia: mode HADIAH, popup tidak menutup sendiri
-   app/stage/page.js               undian: perbaikan hadiah salah nama dan undian ganda + daftar peserta di kiri roda + warna hijau/merah
+   app/stage/page.js               undian: perbaikan hadiah salah nama dan undian ganda + daftar peserta di kiri roda + warna hijau/merah + dropdown hadiah berpencarian + daftar pemenang bisa digulir
    app/api/auth/route.js           perbaikan mask() nama dengan spasi ganda
    app/api/staff/route.js          aksi serah hadiah
    app/api/ticket/route.js         data hadiah dan status diambil
    app/api/admin/route.js          daftar pemenang membawa status diambil + aksi 'employee' (data satu peserta) + aksi 'stagePeserta' (daftar peserta undian)
+   app/pwfield.js                  BARU: kolom password dengan ikon mata (dipakai login, tiket, panitia)
+   app/login/page.js               ikon mata di login panitia
+   app/admin/ui.js                 menu cepat (Layar undian, Halaman scan, Keluar akun) di baris judul pojok kanan atas
+   app/admin/shell.js              tombol-tombol itu dihapus dari dasar sidebar
+   app/admin/panitia/page.js       ikon mata di kolom password panitia
    app/admin/peserta/page.js       perbaikan jendela Reset/Kupon yang menampilkan data lama
    app/admin/pemenang/page.js      kolom status Belum diambil / Diambil
 

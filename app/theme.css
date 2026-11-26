@@ -445,3 +445,26 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 .wrow{padding-left:18px}
 .wrow .chip{background:#fff}.wrow .chip.no{background:var(--red)}
 .wrow .cut{text-decoration:line-through;text-decoration-thickness:2px}
+
+
+/* ---------- v12: menu cepat di baris judul, kolom password, dropdown hadiah berpencarian, daftar pemenang bisa digulir ---------- */
+.ptools{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.psep{width:3px;height:26px;background:#000;flex:none}
+@media(max-width:560px){.psep{display:none}}
+.btn.sm.r{background:var(--red)}
+
+.pw{position:relative;display:flow-root}
+.pw input{padding-right:58px}
+.pw-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:46px;height:34px;padding:0;background:#fff;border:3px solid #000;cursor:pointer;color:#000}
+.pw-eye:hover{background:var(--yellow)}
+.pw-eye[aria-pressed='true']{background:var(--lime)}
+.pw-eye:focus-visible{outline:4px solid var(--blue);outline-offset:2px}
+
+.pzd-pop{position:absolute;z-index:30;left:0;right:0;top:100%;margin-top:6px;background:#fff;border:3px solid #000;filter:drop-shadow(5px 5px 0 #000)}
+.pzd-pop .pzd-list{position:static;margin:0;border:0;filter:none;max-height:min(44vh,320px)}
+.pzd-search{display:flex;align-items:center;gap:8px;padding:8px;border-bottom:3px solid #000;background:var(--yellow)}
+.pzd-search input{margin:0;flex:1;min-width:0;padding:7px 9px}
+.pzd-search small{flex:none;font-weight:700;font-size:12px}
+.pzd-list li.none{cursor:default;color:#555;font-weight:600}
+
+.recent-list{max-height:min(44vh,440px);overflow:auto;padding-right:4px}

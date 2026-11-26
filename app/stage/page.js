@@ -11,27 +11,36 @@ const short = (s, n = 16) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
 
 // Dropdown hadiah buatan sendiri: nama panjang turun ke baris berikutnya (select bawaan browser memotongnya).
 function PrizePick({ prizes, value, onChange, disabled }) {
-  const [open, setOpen] = useState(false), [hi, setHi] = useState(0), box = useRef(null);
+  const [open, setOpen] = useState(false), [hi, setHi] = useState(0), [q, setQ] = useState(''), box = useRef(null), sbox = useRef(null);
   const cur = prizes.find((p) => String(p.id) === String(value));
   const left = (p) => Math.max(p.stok - p.won, 0);
+  // kolom cari hanya muncul jika hadiahnya banyak; semua kata yang diketik harus ada di nama hadiah
+  const searchable = prizes.length > 6;
+  const shown = useMemo(() => {
+    const t = q.toLowerCase().split(/\s+/).filter(Boolean);
+    return t.length ? prizes.filter((p) => t.every((w) => String(p.nama).toLowerCase().includes(w))) : prizes;
+  }, [prizes, q]);
   useEffect(() => {
     if (!open) return;
     const f = (e) => { if (!box.current?.contains(e.target)) setOpen(false); };
     document.addEventListener('pointerdown', f); return () => document.removeEventListener('pointerdown', f);
   }, [open]);
-  const openList = () => { setHi(Math.max(prizes.findIndex((p) => String(p.id) === String(value)), 0)); setOpen(true); };
+  const openList = () => { setQ(''); setHi(Math.max(prizes.findIndex((p) => String(p.id) === String(value)), 0)); setOpen(true); };
+  useEffect(() => { if (open && searchable) sbox.current?.focus(); }, [open, searchable]);
+  useEffect(() => { if (open) document.getElementById('pz-o' + hi)?.scrollIntoView({ block: 'nearest' }); }, [open, hi]);
   const pick = (p) => {
     if (!p || left(p) < 1) return;
-    onChange(String(p.id)); setOpen(false);
+    onChange(String(p.id)); setOpen(false); setQ('');
     box.current?.querySelector('button')?.blur(); // supaya tombol Spasi langsung bisa memutar roda
   };
   const onKey = (e) => {
     if (disabled) return;
     if (!open) { if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) { e.preventDefault(); openList(); } return; }
-    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); setHi((i) => Math.min(i + 1, prizes.length - 1)); }
+    const typing = e.target.tagName === 'INPUT';   // Spasi di kolom cari adalah huruf biasa, bukan memilih
+    if (e.key === 'Escape') { e.preventDefault(); setOpen(false); box.current?.querySelector('button')?.focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); setHi((i) => Math.min(i + 1, shown.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setHi((i) => Math.max(i - 1, 0)); }
-    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(prizes[hi]); }
+    else if (e.key === 'Enter' || (e.key === ' ' && !typing)) { e.preventDefault(); pick(shown[hi]); }
     else if (e.key === 'Tab') setOpen(false);
   };
   return (
@@ -42,14 +51,24 @@ function PrizePick({ prizes, value, onChange, disabled }) {
         <span className="pzd-arr" aria-hidden="true" />
       </button>
       {open && (
-        <ul id="pz-list" role="listbox" className="pzd-list" aria-labelledby="pz">
-          {prizes.map((p, i) => (
-            <li key={p.id} id={`pz-o${i}`} role="option" aria-selected={String(p.id) === String(value)} aria-disabled={left(p) < 1}
-              className={(i === hi ? 'hi ' : '') + (left(p) < 1 ? 'out' : '')} onPointerEnter={() => setHi(i)} onClick={() => pick(p)}>
-              <b>{p.nama}</b><small>{left(p) < 1 ? 'Habis' : `sisa ${left(p)} dari ${p.stok}`}</small>
-            </li>
-          ))}
-        </ul>
+        <div className="pzd-pop">
+          {searchable && (
+            <div className="pzd-search">
+              <input ref={sbox} type="search" aria-label="Cari hadiah" placeholder="Cari nama hadiah..." autoComplete="off" value={q}
+                onChange={(e) => { setQ(e.target.value); setHi(0); }} onKeyDown={onKey} />
+              <small>{shown.length} dari {prizes.length} hadiah</small>
+            </div>
+          )}
+          <ul id="pz-list" role="listbox" className="pzd-list" aria-labelledby="pz">
+            {shown.map((p, i) => (
+              <li key={p.id} id={`pz-o${i}`} role="option" aria-selected={String(p.id) === String(value)} aria-disabled={left(p) < 1}
+                className={(i === hi ? 'hi ' : '') + (left(p) < 1 ? 'out' : '')} onPointerEnter={() => setHi(i)} onClick={() => pick(p)}>
+                <b>{p.nama}</b><small>{left(p) < 1 ? 'Habis' : `sisa ${left(p)} dari ${p.stok}`}</small>
+              </li>
+            ))}
+            {shown.length === 0 && <li role="presentation" className="none">Tidak ada hadiah yang cocok dengan "{q}"</li>}
+          </ul>
+        </div>
       )}
     </div>
   );
@@ -197,14 +216,14 @@ export default function Stage() {
         </div>
         <div className="card"><h2>Pemenang terakhir</h2>
           {d.recent.length === 0 && <div className="empty">Belum ada pemenang.</div>}
-          {d.recent.map((x) => {
+          <div className="recent-list">{d.recent.map((x) => {
             const no = x.status === 'forfeited';
             return (
               <div key={x.id} className={'wrow ' + (no ? 'no' : 'ok')}>
                 <div className="row"><b className={no ? 'cut' : ''}>{x.employees?.nama}</b><span className={'chip' + (no ? ' no' : '')}>{no ? 'Tidak hadir' : 'Menang'}</span></div>
                 <div className="mute">{x.prizes?.nama}</div>
               </div>);
-          })}
+          })}</div>
         </div>
         <div className="gap">
           <a className="btn sm w" href="/admin">Dashboard</a>

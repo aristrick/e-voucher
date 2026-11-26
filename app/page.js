@@ -5,6 +5,7 @@ import { post, fmtFull, unit, holdLoop } from '@/lib/client';
 import { useUI, Splash } from '@/app/admin/ui';
 import Confetti from './confetti';
 import PxIcons from './pxicons';
+import PwField from './pwfield';
 
 const cached = () => { try { return JSON.parse(localStorage.getItem('tiket') || 'null'); } catch { return null; } };
 
@@ -245,10 +246,10 @@ export default function Home() {
                   : <input id="hp" placeholder="081234567890" inputMode="tel" autoComplete="tel" value={f.hp} onChange={set('hp')} />}
               </>}
               <label className="lbl" htmlFor="pw">{info.activated ? 'Password' : 'Buat password (min. 6 karakter)'}</label>
-              <input id="pw" type="password" autoComplete={info.activated ? 'current-password' : 'new-password'} value={f.pw} onChange={set('pw')} onKeyDown={(x) => x.key === 'Enter' && info.activated && submit()} />
+              <PwField id="pw" autoComplete={info.activated ? 'current-password' : 'new-password'} value={f.pw} onChange={set('pw')} onKeyDown={(x) => x.key === 'Enter' && info.activated && submit()} />
               {!info.activated && <>
                 <label className="lbl" htmlFor="pw2">Ulangi password</label>
-                <input id="pw2" type="password" autoComplete="new-password" value={f.pw2} onChange={set('pw2')} onKeyDown={(x) => x.key === 'Enter' && submit()} />
+                <PwField id="pw2" autoComplete="new-password" value={f.pw2} onChange={set('pw2')} onKeyDown={(x) => x.key === 'Enter' && submit()} />
               </>}
               {err && <div className="err">{err}</div>}
               <button className="btn block" disabled={busy} onClick={submit}>{busy ? 'Memproses...' : info.activated ? 'Masuk dan lihat tiket' : 'Terbitkan tiket'}</button>

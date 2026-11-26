@@ -119,10 +119,11 @@ tr:last-child td{border-bottom:0}
 .btn.torch{position:absolute;top:8px;right:8px;z-index:6;width:auto}
 
 /* ---------- layar undian ---------- */
-.stage{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) 340px;align-items:start;padding:16px;max-width:1280px;margin:0 auto}
+.stage{display:grid;gap:20px;grid-template-columns:minmax(0,1fr) 340px;align-items:start;padding:clamp(32px,6vh,64px) 16px 24px;max-width:1280px;margin:0 auto}
 @media(max-width:900px){.stage{grid-template-columns:1fr}}
-.wheel-box{position:relative;width:100%;max-width:min(82vh,760px);margin:0 auto;aspect-ratio:1/1}
+.wheel-box{position:relative;width:100%;max-width:min(74vh,740px);margin:0 auto;aspect-ratio:1/1}
 .wheel-box canvas{width:100%;height:100%;display:block}
+@media(min-width:901px){.stage>div:last-child{padding-top:clamp(0px,2vh,24px)}}
 .pointer{position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:20px solid transparent;border-right:20px solid transparent;border-top:44px solid #000;z-index:2;filter:drop-shadow(0 3px 0 rgba(0,0,0,.25))}
 .pointer::after{content:'';position:absolute;left:-12px;top:-40px;border-left:12px solid transparent;border-right:12px solid transparent;border-top:28px solid var(--red)}
 .win-name{font-size:clamp(34px,9vw,60px);font-weight:700;line-height:1.05;word-break:break-word;margin:8px 0}

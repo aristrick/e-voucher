@@ -112,7 +112,7 @@ export default function Stage() {
   };
 
   const spin = async () => {
-    if (run || !prize) return;
+    if (run || !prize || d.eligible < 1) return;
     setErr(''); setWin(null); setBoom(false); setRun(true);
     sfx.unlock(); sfx.spinStart();
     const r = await adm({ action: 'draw', prize_id: Number(prize) });
@@ -160,7 +160,7 @@ export default function Stage() {
           <button className="btn block" style={{ fontSize: 24, padding: '14px 16px', marginTop: 8 }} disabled={run || !prize || sisa < 1 || d.eligible < 1} onClick={spin}>{run ? 'Roda berputar...' : 'Putar roda'}</button>
           {d.prizes.length > 0 && !prize && <div className="err">Semua hadiah sudah habis diundi.</div>}
           {d.eligible < 1 && <div className="err">Tidak ada peserta yang tersisa.</div>}
-          {err && <div className="err">{err}</div>}
+          {err && !(d.eligible < 1 && /tersisa/i.test(err)) && <div className="err">{err}</div>}
           <p className="mute">Peserta yang ikut: {d.eligible} (sudah check-in dan jatah hadiahnya belum penuh). Tekan Spasi untuk memutar.</p>
         </div>
         <div className="card"><h2>Pemenang terakhir</h2>

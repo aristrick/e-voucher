@@ -9,14 +9,20 @@ export async function POST(req) {
   const [c, r, w] = await Promise.all([
     db.from('coupon_types').select('id,nama').order('urutan').order('id'),
     db.from('redemptions').select('coupon_type_id,created_at').eq('employee_id', e.id),
-    db.from('draws').select('status,drawn_at,prizes(nama)').eq('employee_id', e.id).order('drawn_at'),
+    // claimed_at ada sejak migration-v10; jika belum dijalankan, tiket tetap tampil (hadiah dianggap belum diambil)
+    (async () => {
+      const q = await db.from('draws').select('id,status,drawn_at,claimed_at,prizes(nama)').eq('employee_id', e.id).order('drawn_at');
+      return q.error ? db.from('draws').select('id,status,drawn_at,prizes(nama)').eq('employee_id', e.id).order('drawn_at') : q;
+    })(),
   ]);
+  const won = (w.data || []).filter((x) => x.status !== 'forfeited' && x.prizes?.nama);
   const done = Object.fromEntries((r.data || []).map((x) => [x.coupon_type_id, x.created_at]));
   return json({
     nama: e.nama, nik: e.nik, cabang: e.cabang, divisi: e.divisi, token: e.token,
     kode: e.token.toUpperCase().replace(/(.{4})(?=.)/g, '$1-'),
     hadir: !!e.checked_in_at, hadir_at: e.checked_in_at,
     coupons: (c.data || []).map((x) => ({ ...x, redeemed_at: done[x.id] || null })),
-    win: (w.data || []).filter((x) => x.status !== 'forfeited').map((x) => x.prizes?.nama).filter(Boolean).join(', ') || null,
+    win: won.map((x) => x.prizes.nama).join(', ') || null,
+    prizes: won.map((x) => ({ id: x.id, nama: x.prizes.nama, claimed_at: x.claimed_at || null })),
   });
 }

@@ -10,7 +10,7 @@ export default function Staff() {
   const [res, setRes] = useState(null), [code, setCode] = useState(''), [on, setOn] = useState(false), [booth, setBooth] = useState('');
   const [camReady, setCamReady] = useState(false), [torchOk, setTorchOk] = useState(false), [torch, setTorch] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false), [loadErr, setLoadErr] = useState(''), [camErr, setCamErr] = useState(''), [hist, setHist] = useState([]);
-  const ref = useRef({}), timer = useRef(null), sc = useRef(null);
+  const ref = useRef({}), timer = useRef(null), sc = useRef(null), heldRef = useRef(false);
   ref.current = { mode, coupon, booth };
 
   const [mute, setMute] = useState(false);
@@ -30,29 +30,34 @@ export default function Staff() {
   // hanya QR yang sama persis ditahan 3 detik agar tidak terbaca berulang.
   const [pending, setPending] = useState(false);
   const inflight = useRef(0), last = useRef({ c: '', t: 0 });
-  const release = () => { clearTimeout(timer.current); setRes(null); };
-  const show = (d) => {
-    setRes(d);
-    setHist((h) => [{ ...d, at: new Date().toISOString(), aksi: d.aksi || ref.current.mode }, ...h].slice(0, 10));
+  const release = () => { clearTimeout(timer.current); heldRef.current = false; last.current.t = Date.now(); setRes(null); };
+  // popup hadiah (held) TIDAK menutup sendiri: panitia harus membaca hadiahnya lalu mengetuk Selesai
+  const show = (d, held, mode) => {
+    heldRef.current = held;
+    setRes({ ...d, held });
+    setHist((h) => [{ ...d, at: new Date().toISOString(), aksi: d.aksi || mode }, ...h].slice(0, 10));
     navigator.vibrate?.(d.ok ? 80 : [80, 60, 80]);
     if (d.ok) sfx.success(); else sfx.fail();
     clearTimeout(timer.current);
-    timer.current = setTimeout(release, 1800);
+    if (!held) timer.current = setTimeout(release, 1800);
   };
 
   const act = async (c, manual) => {
     c = String(c || '').trim();
     if (!c) return;
     const now = Date.now();
+    const mode = ref.current.mode;
+    // mode Hadiah: selama popup terbuka atau ada scan yang belum selesai, scan lain diabaikan supaya hadiah peserta sebelumnya tidak tertimpa popup baru
+    if (mode === 'prize' && (heldRef.current || inflight.current > 0)) return;
     if (!manual && last.current.c === c && now - last.current.t < 3000) return;
     last.current = { c, t: now };
     sfx.scan(); navigator.vibrate?.(20);   // tanda instan bahwa QR terbaca
     inflight.current++; setPending(true);
-    const r = await post('/api/staff', { action: ref.current.mode, code: c, coupon_id: Number(ref.current.coupon), booth: ref.current.booth });
+    const r = await post('/api/staff', { action: mode, code: c, coupon_id: Number(ref.current.coupon), booth: ref.current.booth });
     inflight.current--; if (!inflight.current) setPending(false);
     if (r.status === 401) { location.href = '/login'; return; }
     last.current.t = Date.now();
-    show(r.status === 0 ? { ok: false, msg: 'Koneksi bermasalah, scan lagi' } : { ...r, ok: !!r.ok, msg: r.msg || r.error || 'Server bermasalah, scan lagi' });
+    show(r.status === 0 ? { ok: false, msg: 'Koneksi bermasalah, scan lagi' } : { ...r, ok: !!r.ok, msg: r.msg || r.error || 'Server bermasalah, scan lagi' }, mode === 'prize', mode);
   };
 
   useEffect(() => {
@@ -111,18 +116,18 @@ export default function Staff() {
           <b>{mode === 'checkin' ? '✓ ' : ''}CHECK-IN</b><span>Catat kehadiran di pintu masuk</span></button>
         <button type="button" className={'mode rd' + (mode === 'redeem' ? ' on' : '')} aria-pressed={mode === 'redeem'} onClick={() => setMode('redeem')}>
           <b>{mode === 'redeem' ? '✓ ' : ''}REDEEM</b><span>Tukar kupon di booth</span></button>
+        <button type="button" className={'mode hd' + (mode === 'prize' ? ' on' : '')} aria-pressed={mode === 'prize'} onClick={() => setMode('prize')}>
+          <b>{mode === 'prize' ? '✓ ' : ''}HADIAH</b><span>Serahkan hadiah undian ke pemenang</span></button>
       </div>
-      {mode === 'redeem' && <>
-        {coupons.length
-          ? <select aria-label="Kupon yang ditukar" value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>
-          : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>}
-        <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />
-      </>}
+      {mode === 'redeem' && (coupons.length
+        ? <select aria-label="Kupon yang ditukar" value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>
+        : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>)}
+      {mode !== 'checkin' && <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />}
       {!camErr && <>
-        <div className={'camwrap ' + (mode === 'checkin' ? 'ci' : 'rd')}>
+        <div className={'camwrap ' + (mode === 'checkin' ? 'ci' : mode === 'redeem' ? 'rd' : 'hd')}>
           <div id="cam" />
           {camReady && <div className="scan-frame" aria-hidden="true"><i /><i /><i /><i /></div>}
-          <span className="cam-mode">{mode === 'checkin' ? 'MODE CHECK-IN' : 'MODE REDEEM' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
+          <span className="cam-mode">{mode === 'checkin' ? 'MODE CHECK-IN' : mode === 'prize' ? 'MODE HADIAH' : 'MODE REDEEM' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
           {!camReady && <div className="cam-load" role="status">Menyalakan kamera...</div>}
           {torchOk && <button type="button" className="btn sm w torch" onClick={toggleTorch} aria-pressed={torch}>{torch ? 'Senter mati' : 'Senter'}</button>}
           {pending && <div className="scanning" role="status">Memproses...</div>}
@@ -138,22 +143,25 @@ export default function Staff() {
       {hist.length > 0 && <div className="card"><div className="row"><h2>Riwayat scan</h2><span className="mute">{okCount} berhasil</span></div>
         {hist.map((h, i) => (
           <div className="row" key={i} style={{ margin: '8px 0' }}>
-            <span><b>{h.nama || 'Tidak dikenal'}</b><div className="mute">{h.aksi === 'redeem' ? 'Redeem' + (h.kupon ? ' ' + h.kupon : '') : 'Check-in'} · {fmtTime(h.at)}{h.ok ? '' : ' · ' + h.msg}</div></span>
+            <span><b>{h.nama || 'Tidak dikenal'}</b><div className="mute">{h.aksi === 'redeem' ? 'Redeem' + (h.kupon ? ' ' + h.kupon : '') : h.aksi === 'prize' ? 'Hadiah' + (h.hadiah?.length ? ' ' + h.hadiah.join(', ') : '') : 'Check-in'} · {fmtTime(h.at)}{h.ok ? '' : ' · ' + h.msg}</div></span>
             <span className={'chip' + (h.ok ? '' : ' no')}>{h.ok ? 'Berhasil' : 'Gagal'}</span>
           </div>))}
       </div>}
 
       {res && (
-        <div className="pop" onClick={release}>
+        <div className="pop" onClick={res.held ? undefined : release}>
           <div className={'pop-box ' + (res.ok ? 'ok' : 'bad')}>
             <div className="pop-icon">{res.ok ? '✓' : '✕'}</div>
             <div className="pop-title">{res.ok ? 'Berhasil' : 'Gagal'}</div>
             {res.nama && <div className="pop-name">{res.nama}</div>}
             {res.nik && <div>NIK {res.nik}{unit(res) ? ' · ' + unit(res) : ''}</div>}
             {res.kupon && <div className="pop-item">{res.kupon}</div>}
+            {res.hadiah?.length > 0 && <div className="pop-items"><div className="pop-sub">{res.ok ? 'Hadiah yang diserahkan' : 'Hadiah peserta'}</div>{res.hadiah.map((h, i) => <div className="pop-item" key={i}>{h}</div>)}</div>}
             <div className="pop-msg">{res.msg}</div>
             {res.at && <div className="pop-time">{res.ok ? 'Tercatat' : 'Sebelumnya'}: {fmtFull(res.at)}</div>}
-            <div className="pop-hint">Ketuk untuk menutup</div>
+            {res.held
+              ? <button type="button" className="btn g block" style={{ marginTop: 16 }} onClick={release} autoFocus>Selesai, tutup</button>
+              : <div className="pop-hint">Ketuk untuk menutup</div>}
           </div>
         </div>
       )}

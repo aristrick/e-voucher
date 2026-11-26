@@ -15,7 +15,7 @@ export default function Pemenang() {
           <tbody>{d.draws.map((x) => (
             <tr key={x.id} style={x.status === 'forfeited' ? { opacity: .55 } : undefined}>
               <td className="nm"><b>{x.employees?.nama}</b></td><td className="nw mono" data-label="NIK">{x.employees?.nik}</td><td className="nw" data-label="Divisi">{x.employees?.divisi || '-'}</td><td className="nw" data-label="Cabang">{x.employees?.cabang || '-'}</td><td data-label="Hadiah"><b>{x.prizes?.nama}</b></td><td className="nw" data-label="Waktu">{fmtDateTime(x.drawn_at)}</td>
-              <td data-label="Status"><span className={'chip' + (x.status === 'forfeited' ? ' no' : '')}>{x.status === 'forfeited' ? 'Tidak hadir' : 'Menang'}</span></td>
+              <td data-label="Status"><span className={'chip' + (x.status === 'forfeited' ? ' no' : '')}>{x.status === 'forfeited' ? 'Tidak hadir' : 'Menang'}</span>{x.status !== 'forfeited' && <div className="mute" style={{ marginTop: 4 }}>{x.claimed_at ? 'Diambil ' + fmtDateTime(x.claimed_at) + (x.claimed_by ? ' · ' + x.claimed_by : '') : 'Belum diambil'}</div>}</td>
               <td className="act">{x.status !== 'forfeited' && <button className="btn sm y" onClick={async () => (await ask(`Tandai ${x.employees?.nama} tidak hadir? Stok hadiah kembali dan bisa diundi ulang.`, { title: 'Tandai tidak hadir?', okText: 'Ya, tandai' })) && run({ action: 'forfeit', draw_id: x.id }, 'Ditandai tidak hadir')}>Tidak hadir</button>}</td>
             </tr>))}
           </tbody></table></div>

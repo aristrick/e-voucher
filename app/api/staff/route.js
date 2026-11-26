@@ -38,6 +38,30 @@ async function handle(req, b) {
       return R({ ok: false, aksi: 'checkin', nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '', at: e.checked_in_at, msg: 'Sudah check-in sebelumnya' });
     }
 
+    if (action === 'prize') {
+      // serahkan hadiah undian: semua hadiah peserta yang belum diambil ditandai sekaligus dalam SATU update bersyarat,
+      // jadi dua panitia yang memindai QR yang sama bersamaan tidak bisa menyerahkan hadiah dua kali
+      const pe = await db.from('employees').select('id,nama,nik,cabang,divisi').or(match).maybeSingle();
+      if (pe.error) return R({ ok: false, aksi: 'prize', msg: pe.error.message }, 500);
+      const e = pe.data;
+      if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
+      const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '' };
+      const now = new Date().toISOString();
+      const up = await db.from('draws').update({ claimed_at: now, claimed_by: String(booth || '').slice(0, 40) || null })
+        .eq('employee_id', e.id).neq('status', 'forfeited').is('claimed_at', null).select('prizes(nama)');
+      if (up.error) {
+        const m = /claimed_at|claimed_by|schema cache|column/i.test(up.error.message) ? 'Database belum diperbarui. Jalankan supabase/migration-v10.sql di Supabase SQL Editor.' : up.error.message;
+        return R({ ok: false, aksi: 'prize', ...who, msg: m }, 500);
+      }
+      if (up.data?.length) {
+        const hadiah = up.data.map((x) => x.prizes?.nama).filter(Boolean);
+        return R({ ok: true, aksi: 'prize', ...who, hadiah, at: now, msg: hadiah.length > 1 ? 'Serahkan semua hadiah ini' : 'Serahkan hadiah ini' });
+      }
+      const { data: all } = await db.from('draws').select('claimed_at,prizes(nama)').eq('employee_id', e.id).neq('status', 'forfeited').order('claimed_at');
+      if (!all?.length) return R({ ok: false, aksi: 'prize', ...who, msg: 'Peserta ini belum memenangkan hadiah' });
+      return R({ ok: false, aksi: 'prize', ...who, hadiah: all.map((x) => x.prizes?.nama).filter(Boolean), at: all[all.length - 1].claimed_at, msg: 'Hadiah sudah diambil sebelumnya' });
+    }
+
     if (action !== 'redeem') return [json({ ok: false, msg: 'Aksi tidak dikenal' }, 400)];
     const cid = Number(coupon_id);
     // peserta dan kupon dicari bersamaan, bukan berurutan
@@ -71,14 +95,15 @@ async function handle(req, b) {
 export async function POST(req) {
   let b; try { b = await req.json(); } catch { return json({ ok: false, msg: 'Request tidak valid' }, 400); }
   const [res, d] = await handle(req, b);
-  if (d && (b.action === 'checkin' || b.action === 'redeem')) {
+  if (d && (b.action === 'checkin' || b.action === 'redeem' || b.action === 'prize')) {
     const booth = String(b.booth || '').slice(0, 40);
     after(async () => {
-      const what = b.action === 'checkin' ? 'Check-in' : 'Redeem' + (d.kupon ? ' ' + d.kupon : '');
+      const what = b.action === 'checkin' ? 'Check-in' : b.action === 'prize' ? 'Serah hadiah' : 'Redeem' + (d.kupon ? ' ' + d.kupon : '');
+      const hd = b.action === 'prize' && d.hadiah?.length ? ' ' + d.hadiah.join(', ') : '';
       const ringkas = d.ok
-        ? `${what} ${d.nama}` + (b.action === 'redeem' && booth ? ` (booth ${booth})` : '')
+        ? `${what}${hd} ke ${d.nama}` + (b.action !== 'checkin' && booth ? ` (booth ${booth})` : '')
         : `${what} gagal${d.nama ? ' · ' + d.nama : ''}: ${d.msg || 'tidak diketahui'}`;
-      await logAct(await actorOf(req), { kategori: b.action, aksi: b.action, ringkas, ok: !!d.ok, detail: { nik: d.nik || null, kupon: d.kupon || null, booth: booth || null } });
+      await logAct(await actorOf(req), { kategori: b.action === 'prize' ? 'hadiah' : b.action, aksi: b.action, ringkas, ok: !!d.ok, detail: { nik: d.nik || null, kupon: d.kupon || null, hadiah: d.hadiah || null, booth: booth || null } });
     });
   }
   return res;

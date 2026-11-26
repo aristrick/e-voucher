@@ -235,7 +235,10 @@ const H = {
   },
   async deletePrize(b) { must(await db.from('prizes').delete().eq('id', b.id)); return {}; },
   async winners() {
-    return { draws: must(await db.from('draws').select('id,status,drawn_at,prizes(nama),employees(nama,nik,cabang,divisi)').order('drawn_at', { ascending: false }).limit(500)).data };
+    const cols = 'id,status,drawn_at,prizes(nama),employees(nama,nik,cabang,divisi)';
+    let q = await db.from('draws').select(cols + ',claimed_at,claimed_by').order('drawn_at', { ascending: false }).limit(500);
+    if (q.error) q = await db.from('draws').select(cols).order('drawn_at', { ascending: false }).limit(500);   // migration-v10 belum dijalankan
+    return { draws: must(q).data };
   },
   async forfeit(b) { must(await db.from('draws').update({ status: 'forfeited' }).eq('id', b.draw_id)); return {}; },
 

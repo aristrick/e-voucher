@@ -1,0 +1,21 @@
+CARA PASANG
+===========
+Folder di zip ini meniru susunan proyekmu (e-voucher). Cukup salin isinya ke folder proyek
+dan pilih "Timpa / Replace" untuk file yang sudah ada.
+
+URUTAN
+1. Supabase: buka SQL Editor, jalankan  supabase/migration-v10.sql  (sekali saja).
+2. Salin semua file di bawah ke proyek (timpa):
+
+   app/page.js                     tiket peserta: polling 25 detik + banner hadiah di atas tiket
+   app/theme.css                   gaya mode Hadiah dan banner hadiah
+   app/staff/page.js               halaman panitia: mode HADIAH, popup tidak menutup sendiri
+   app/stage/page.js               undian: perbaikan hadiah salah nama dan undian ganda
+   app/api/auth/route.js           perbaikan mask() nama dengan spasi ganda
+   app/api/staff/route.js          aksi serah hadiah
+   app/api/ticket/route.js         data hadiah dan status diambil
+   app/api/admin/route.js          daftar pemenang membawa status diambil
+   app/admin/pemenang/page.js      kolom status Belum diambil / Diambil
+
+3. Hentikan "npm run dev", hapus folder .next, lalu jalankan "npm run dev" lagi.
+4. Untuk Vercel: commit dan push, lalu tunggu deploy selesai.

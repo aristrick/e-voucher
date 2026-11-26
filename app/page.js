@@ -42,6 +42,7 @@ export default function Home() {
       const baru = r.coupons.filter((c) => c.redeemed_at && !(prev.coupons || []).find((x) => x.id === c.id)?.redeemed_at);
       if (baru.length) setFresh((f) => [...f, ...baru.map((c) => c.id)]);
       if (baru.length) say('Kupon ' + baru.map((c) => c.nama).join(', ') + ' berhasil ditukar');
+      else if (prev.prizes && (r.prizes || []).some((p) => p.claimed_at && !prev.prizes.find((x) => x.id === p.id)?.claimed_at)) say('Hadiah kamu sudah diserahkan. Selamat menikmati!');
       else if (r.hadir && !prev.hadir) say('Check-in berhasil. Selamat datang!');
       else if (r.win && !prev.win) say('Selamat, kamu memenangkan ' + r.win + '!');
     }
@@ -115,12 +116,27 @@ export default function Home() {
   /* ---------- sudah punya tiket ---------- */
   if (t) {
     const used = t.coupons.filter((c) => c.redeemed_at).length, all = t.coupons.length;
+    // tiket lama di cache HP belum punya daftar hadiah: pakai teks hadiah sampai data baru masuk
+    const pz = t.prizes || (t.win ? t.win.split(', ').map((nama) => ({ nama })) : []);
     return (
       <div className="wrap">
         {splash && <Splash text="Membuka tiketmu" />}
         {party && <Confetti />}
         {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
         <div className="row" style={{ marginBottom: 12 }}><h2 style={{ margin: 0 }}>Tiket saya</h2><button className="btn sm y" onClick={out}>Keluar</button></div>
+
+        {pz.length > 0 && (
+          <div className="card yellow prize-banner" role="status">
+            <div className="pb-tag">Selamat, kamu memenangkan hadiah!</div>
+            {pz.map((p, i) => (
+              <div className={'pb-item' + (p.claimed_at ? ' done' : '')} key={p.id || i}>
+                <div className="pop-item pb-name">{p.nama}</div>
+                <div className="pb-state">{p.claimed_at
+                  ? 'Sudah diambil · ' + fmtFull(p.claimed_at)
+                  : 'Belum diambil. Tunjukkan QR tiket di bawah ke panitia untuk menukarkan hadiah ini.'}</div>
+              </div>))}
+          </div>
+        )}
 
         <div className={'ticket' + (enter ? ' enter' : '')}>
           <div className="t-sec up">
@@ -143,8 +159,6 @@ export default function Home() {
             </div>
           </div>
         </div>
-
-        {t.win && <div className="card yellow"><h2>Selamat, kamu menang!</h2>Hadiah: <b>{t.win}</b>. Temui panitia untuk mengambil.</div>}
 
         <div className="card"><h2>Status tiket</h2>
           <ul className="tl">

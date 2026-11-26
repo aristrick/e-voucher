@@ -84,7 +84,7 @@ export default function Stage() {
     if (!r.ok) { setLerr(r.error || 'Data belum bisa dimuat'); return false; }
     setLerr(''); setD(r);
     setPrize((p) => (r.prizes.some((x) => String(x.id) === String(p) && x.stok > x.won) ? p : String(r.prizes.find((x) => x.stok > x.won)?.id || '')));
-    return true;
+    return r;
   }, []);
   useEffect(() => {
     let alive = true;
@@ -111,22 +111,35 @@ export default function Stage() {
     raf.current = requestAnimationFrame(frame);
   };
 
-  const spin = async () => {
-    if (run || !prize || d.eligible < 1) return;
+  // pid diisi saat undi ulang: id hadiah dikirim langsung, tidak dibaca dari state yang bisa sudah berubah/usang
+  const spin = async (pid) => {
+    const forced = typeof pid === 'number';
+    if (run) return;
+    if (!forced && (!prize || d.eligible < 1)) return;
+    const prizeId = forced ? pid : Number(prize);
     setErr(''); setWin(null); setBoom(false); setRun(true);
     sfx.unlock(); sfx.spinStart();
-    const r = await adm({ action: 'draw', prize_id: Number(prize) });
+    const r = await adm({ action: 'draw', prize_id: prizeId });
     if (!r.ok) { setRun(false); return setErr(r.error); }
+    r.winner.prize_id = prizeId; r.winner.prize_nama = d.prizes.find((x) => x.id === prizeId)?.nama || '';
     const list = shuffle([...(r.decoys || []), r.winner]);
     const idx = list.findIndex((x) => x === r.winner);
     rot.current = 0; setSegs(list);
     requestAnimationFrame(() => animate(list, idx, () => { sfx.win(); setWin(r.winner); setBoom(true); setRun(false); load(); setTimeout(() => setBoom(false), 5000); }));
   };
   const forfeit = async () => {
-    const id = win.draw_id; setWin(null);
+    const id = win.draw_id, pid = win.prize_id; setWin(null);
     const r = await adm({ action: 'forfeit', draw_id: id });
     if (!r.ok) return setErr(r.error);
-    await load(); setTimeout(spin, 200);
+    // pastikan stok benar-benar sudah kembali di data terbaru sebelum memutar lagi (bukan sekadar menunggu waktu)
+    let fresh = null;
+    for (let i = 0; i < 3 && !fresh; i++) {
+      const x = await load(); const p = x && x.prizes.find((y) => y.id === pid);
+      if (p && p.stok > p.won && x.eligible > 0) fresh = x; else await new Promise((t) => setTimeout(t, 400));
+    }
+    if (!fresh) return setErr('Stok hadiah belum terbarui atau tidak ada peserta tersisa. Coba putar lagi sebentar lagi.');
+    setPrize(String(pid));           // dropdown kembali ke hadiah yang diundi ulang
+    setTimeout(() => spin(pid), 300);
   };
   useEffect(() => {
     const k = (e) => { if (e.code === 'Space' && !win && !e.target.matches?.('select,input,button')) { e.preventDefault(); spin(); } };
@@ -183,7 +196,7 @@ export default function Stage() {
       {win && (
         <div className="pop">
           <div className="pop-box yellow" role="dialog" aria-modal="true" aria-label="Pemenang">
-            <div>Pemenang {cur?.nama}</div>
+            <div>Pemenang {win.prize_nama || cur?.nama}</div>
             <div className="win-name">{win.nama}</div>
             <div>NIK {win.nik}{unit(win) ? ' · ' + unit(win) : ''}</div>
             <div className="gap" style={{ justifyContent: 'center', marginTop: 18 }}>

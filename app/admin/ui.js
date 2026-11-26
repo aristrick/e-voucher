@@ -1,6 +1,6 @@
 'use client';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { adm } from '@/lib/client';
+import { adm, holdLoop } from '@/lib/client';
 
 // Muat data dari /api/admin. Kalau gagal sebelum ada data, otomatis coba lagi tiap 3 detik.
 export function useLoad(body, every = 0) {
@@ -29,10 +29,11 @@ export function useLoad(body, every = 0) {
 
 // ---------- notifikasi (toast) dan dialog konfirmasi/isian sesuai tema, pengganti popup bawaan browser ----------
 const UICtx = createContext(null);
-export const useUI = () => useContext(UICtx) || { toast: () => {}, ask: async () => true, askText: async () => null };
+export const useUI = () => useContext(UICtx) || { toast: () => {}, ask: async () => true, askText: async () => null, begin: () => {}, end: () => {} };
 let seq = 0;
 export function UIProvider({ children }) {
-  const [toasts, setToasts] = useState([]), [dlg, setDlg] = useState(null);
+  const [toasts, setToasts] = useState([]), [dlg, setDlg] = useState(null), [saving, setSaving] = useState(0);
+  const begin = useCallback(() => setSaving((n) => n + 1), []), end = useCallback(() => setSaving((n) => Math.max(0, n - 1)), []);
   const dismiss = useCallback((id) => setToasts((t) => t.filter((x) => x.id !== id)), []);
   const toast = useCallback((type, text) => {
     const id = ++seq;
@@ -43,7 +44,7 @@ export function UIProvider({ children }) {
   const askText = useCallback((message, o = {}) => new Promise((res) => setDlg({ kind: 'prompt', message, ...o, res })), []);
   const close = (v) => { dlg?.res(v); setDlg(null); };
   return (
-    <UICtx.Provider value={{ toast, ask, askText }}>
+    <UICtx.Provider value={{ toast, ask, askText, begin, end }}>
       {children}
       <div className="toasts" aria-live="polite">
         {toasts.map((t) => (
@@ -52,9 +53,22 @@ export function UIProvider({ children }) {
           </div>))}
       </div>
       {dlg && <Dialog d={dlg} close={close} />}
+      {saving > 0 && <Saving />}
     </UICtx.Provider>
   );
 }
+// Animasi pixel untuk menyimpan perubahan dan membuka tiket. Muncul langsung, durasinya digenapkan ke satu putaran penuh (lihat holdLoop).
+export function Splash({ text = 'Menyimpan perubahan' }) {
+  return (
+    <div className="pop saving" role="status" aria-live="polite" style={{ zIndex: 70 }}>
+      <div className="pop-box splash-box">
+        <img src="/loading.gif" width="104" height="110" alt="" />
+        <div className="splash-t">{text}<span className="splash-dots" aria-hidden="true" /></div>
+      </div>
+    </div>
+  );
+}
+const Saving = () => <Splash />;
 function Dialog({ d, close }) {
   const [v, setV] = useState(d.value || ''), ok = useRef(null);
   const prompt = d.kind === 'prompt';
@@ -84,10 +98,11 @@ function Dialog({ d, close }) {
 // Jalankan aksi admin: berhasil atau gagal ditampilkan sebagai notifikasi
 const NoMsg = () => null;
 export function useAct(after) {
-  const { toast } = useUI();
+  const { toast, begin, end } = useUI();
   const setMsg = (m) => { if (m) toast(m.ok ? 'ok' : 'err', m.t); };
   const run = async (body, okText) => {
-    const r = await adm(body);
+    const t0 = Date.now(); begin();
+    let r; try { r = await adm(body); await holdLoop(t0); } finally { end(); }
     if (r.ok) { if (okText) toast('ok', okText); await after?.(r); } else toast('err', r.error || 'Terjadi kesalahan');
     return r;
   };

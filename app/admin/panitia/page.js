@@ -7,8 +7,8 @@ export default function Panitia() {
   const { run, Msg } = useAct(() => reload(true));
   const [add, setAdd] = useState(false), [f, setF] = useState({ username: '', nama: '', password: '' }), [rs, setRs] = useState(null), [pw, setPw] = useState('');
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const create = async () => { const r = await run({ action: 'addStaff', ...f }, 'Panitia ditambahkan'); if (r.ok) { setAdd(false); setF({ username: '', nama: '', password: '' }); } };
-  const reset = async () => { const r = await run({ action: 'resetStaff', id: rs.id, password: pw }, 'Password panitia diganti'); if (r.ok) { setRs(null); setPw(''); } };
+  const create = async () => { if (f.username.trim() && f.password.length >= 6 && !(await ask(`Simpan akun panitia ${f.username.trim()}?`, { title: 'Tambah panitia?', okText: 'Ya, simpan' }))) return; const r = await run({ action: 'addStaff', ...f }, 'Panitia ditambahkan'); if (r.ok) { setAdd(false); setF({ username: '', nama: '', password: '' }); } };
+  const reset = async () => { if (pw.length >= 6 && !(await ask(`Ganti password akun ${rs.username}? Password lama tidak berlaku lagi.`, { title: 'Ganti password?', okText: 'Ya, ganti' }))) return; const r = await run({ action: 'resetStaff', id: rs.id, password: pw }, 'Password panitia diganti'); if (r.ok) { setRs(null); setPw(''); } };
   return (
     <>
       <Title right={<button className="btn" onClick={() => setAdd(true)}>Tambah panitia</button>}>Panitia</Title>
@@ -20,7 +20,7 @@ export default function Panitia() {
             <tr key={s.id}><td className="nm"><b>{s.username}</b></td><td data-label="Nama">{s.nama || '-'}</td>
               <td data-label="Status"><span className={'chip' + (s.aktif ? '' : ' off')}>{s.aktif ? 'Aktif' : 'Nonaktif'}</span></td>
               <td className="act"><span className="acts">
-                <button className="btn sm y" onClick={() => run({ action: 'toggleStaff', id: s.id, aktif: !s.aktif })}>{s.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                <button className="btn sm y" onClick={async () => (await ask(s.aktif ? `Nonaktifkan akun ${s.username}? Panitia ini tidak bisa scan lagi sampai diaktifkan kembali.` : `Aktifkan akun ${s.username}? Panitia ini bisa scan lagi.`, { title: s.aktif ? 'Nonaktifkan panitia?' : 'Aktifkan panitia?', okText: s.aktif ? 'Ya, nonaktifkan' : 'Ya, aktifkan', danger: s.aktif })) && run({ action: 'toggleStaff', id: s.id, aktif: !s.aktif }, s.aktif ? 'Akun dinonaktifkan' : 'Akun diaktifkan')}>{s.aktif ? 'Nonaktifkan' : 'Aktifkan'}</button>
                 <button className="btn sm w" onClick={() => setRs(s)}>Ganti password</button>
                 <button className="btn sm r" onClick={async () => (await ask(`Hapus akun ${s.username}?`)) && run({ action: 'deleteStaff', id: s.id }, 'Akun dihapus')}>Hapus</button>
               </span></td></tr>))}

@@ -1,8 +1,10 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { post, fmtFull, unit } from '@/lib/client';
-import { useUI } from '@/app/admin/ui';
+import { post, fmtFull, unit, holdLoop } from '@/lib/client';
+import { useUI, Splash } from '@/app/admin/ui';
+import Confetti from './confetti';
+import PxIcons from './pxicons';
 
 const cached = () => { try { return JSON.parse(localStorage.getItem('tiket') || 'null'); } catch { return null; } };
 
@@ -11,7 +13,8 @@ export default function Home() {
   const [t, setT] = useState(null), [ev, setEv] = useState(null), [ready, setReady] = useState(false), [toast, setToast] = useState('');
   const [step, setStep] = useState(1), [info, setInfo] = useState(null), [f, setF] = useState({ nik: '', hp: '', pw: '', pw2: '' });
   const [err, setErr] = useState(''), [busy, setBusy] = useState(false);
-  const last = useRef(null), tt = useRef(null);
+  const last = useRef(null), tt = useRef(null), partied = useRef(false);
+  const [party, setParty] = useState(false), [splash, setSplash] = useState(false), [fresh, setFresh] = useState([]), [enter, setEnter] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const say = (m) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(''), 5000); };
 
@@ -23,6 +26,7 @@ export default function Home() {
     const prev = last.current;
     if (prev) {
       const baru = r.coupons.filter((c) => c.redeemed_at && !(prev.coupons || []).find((x) => x.id === c.id)?.redeemed_at);
+      if (baru.length) setFresh((f) => [...f, ...baru.map((c) => c.id)]);
       if (baru.length) say('Kupon ' + baru.map((c) => c.nama).join(', ') + ' berhasil ditukar');
       else if (r.hadir && !prev.hadir) say('Check-in berhasil. Selamat datang!');
       else if (r.win && !prev.win) say('Selamat, kamu memenangkan ' + r.win + '!');
@@ -32,6 +36,7 @@ export default function Home() {
 
   useEffect(() => {
     const c = cached(); if (c) { setT(c); last.current = c; }
+    new Image().src = '/loading.gif';
     fetch('/api/event').then((r) => r.json()).then(setEv).catch(() => {});
     load().finally(() => setReady(true));
     const i = setInterval(() => { if (!document.hidden) load(); }, 10000);
@@ -39,6 +44,13 @@ export default function Home() {
     document.addEventListener('visibilitychange', vis);
     return () => { clearInterval(i); document.removeEventListener('visibilitychange', vis); };
   }, []);
+
+  // pemenang undian: confetti sekali setiap login atau buka tiket, dan langsung saat kemenangan baru masuk
+  useEffect(() => {
+    if (!t?.win || partied.current) return;
+    partied.current = true; setParty(true); say('Selamat, kamu memenangkan ' + t.win + '!');
+    const x = setTimeout(() => setParty(false), 6500); return () => clearTimeout(x);
+  }, [t?.win]);
 
   const lookup = async () => {
     if (!f.nik.trim()) return setErr('Isi NIK dulu');
@@ -55,11 +67,13 @@ export default function Home() {
     if (!f.pw || (!info.activated && f.pw.length < 6)) return setErr(info.activated ? 'Isi password' : 'Password minimal 6 karakter');
     if (!info.activated && f.pw !== f.pw2) return setErr('Ulangi password dengan sama persis');
     setBusy(true); setErr('');
+    const t0 = Date.now(); setSplash(true);
     const r = await post('/api/auth', info.activated ? { action: 'login', nik: f.nik, hp: f.hp, password: f.pw } : { action: 'activate', nik: f.nik, hp: f.hp, password: f.pw });
-    if (!r.ok) { setBusy(false); return setErr(r.error); }
-    await load(); setBusy(false); setF({ nik: '', hp: '', pw: '', pw2: '' }); setStep(1); setInfo(null);
+    if (!r.ok) { await new Promise((x) => setTimeout(x, 350)); setSplash(false); setBusy(false); return setErr(r.error); }
+    await load(); await holdLoop(t0);
+    setEnter(true); setSplash(false); setBusy(false); setF({ nik: '', hp: '', pw: '', pw2: '' }); setStep(1); setInfo(null);
   };
-  const out = async () => { const ok = await ask('Yakin ingin keluar dari akun ini?', { title: 'Keluar?', okText: 'Ya, keluar' }); if (!ok) return; await post('/api/auth', { action: 'logout' }); localStorage.removeItem('tiket'); last.current = null; setT(null); setStep(1); };
+  const out = async () => { const ok = await ask('Yakin ingin keluar dari akun ini?', { title: 'Keluar?', okText: 'Ya, keluar' }); if (!ok) return; await post('/api/auth', { action: 'logout' }); localStorage.removeItem('tiket'); last.current = null; partied.current = false; setT(null); setStep(1); };
 
   if (!t && !ready) return <div className="wrap" role="status" aria-busy="true" aria-label="Memuat"><div className="card"><span className="sk" style={{ width: '40%', height: 18 }} /><span className="sk" style={{ height: 52, marginTop: 14 }} /><span className="sk" style={{ width: '70%', height: 14 }} /></div><div className="card"><span className="sk" style={{ width: '50%', height: 22 }} /><span className="sk" style={{ height: 180, marginTop: 14 }} /></div></div>;
   const e = ev?.event || {};
@@ -69,22 +83,30 @@ export default function Home() {
     const used = t.coupons.filter((c) => c.redeemed_at).length, all = t.coupons.length;
     return (
       <div className="wrap">
+        {splash && <Splash text="Membuka tiketmu" />}
+        {party && <Confetti />}
         {toast && <div className="toast" onClick={() => setToast('')}>{toast}</div>}
         <div className="row" style={{ marginBottom: 12 }}><h2 style={{ margin: 0 }}>Tiket saya</h2><button className="btn sm y" onClick={out}>Keluar</button></div>
 
-        <div className="ticket">
-          <div className="t-top">
-            <div className="row"><b>{e.event_name || 'Gathering'}</b><span className={'chip' + (t.hadir ? '' : ' no')}>{t.hadir ? 'Sudah check-in' : 'Belum check-in'}</span></div>
-            <div className="mute" style={{ color: '#000', marginTop: 10 }}>Atas nama</div>
-            <div className="t-name">{t.nama}</div>
-            <div>NIK {t.nik}{unit(t) ? ' · ' + unit(t) : ''}</div>
-            {(e.event_date || e.event_venue) && <div style={{ marginTop: 6 }}>{e.event_date && <div>{e.event_date}</div>}{e.event_venue && <div>{e.event_venue}</div>}</div>}
+        <div className={'ticket' + (enter ? ' enter' : '')}>
+          <div className="t-sec up">
+            <div className="t-ribbon"><span>Tiket masuk</span><PxIcons /><span>1 karyawan</span></div>
+            <div className="t-top">
+              <div className="t-event">{e.event_name || 'Gathering'}</div>
+              <div className="t-state"><span className={'chip stamp' + (t.hadir ? ' on' : ' no')}>{t.hadir ? 'Sudah check-in' : 'Belum check-in'}</span></div>
+              <div className="t-lbl">Atas nama</div>
+              <div className="t-name">{t.nama}</div>
+              <dl className="t-info"><dt>NIK</dt><dd>{t.nik}</dd>{unit(t) && <><dt>Unit</dt><dd>{unit(t)}</dd></>}</dl>
+              {(e.event_date || e.event_venue) && <div className="t-when">{e.event_date && <b>{e.event_date}</b>}{e.event_venue && <div>{e.event_venue}</div>}</div>}
+            </div>
           </div>
-          <div className="t-tear" />
-          <div className="t-bot">
-            <div className="qr"><QRCodeSVG value={t.token} size={190} /></div>
-            <div className="code">{t.kode}</div>
-            <div className="mute">Tunjukkan QR ini ke panitia di pintu masuk dan di booth</div>
+          <div className="t-perf" aria-hidden="true" />
+          <div className="t-sec dn">
+            <div className="t-bot">
+              <div className="qr"><QRCodeSVG value={t.token} size={190} /></div>
+              <div className="code">{t.kode}</div>
+              <div className="mute">Tunjukkan QR ini ke panitia di pintu masuk dan di booth</div>
+            </div>
           </div>
         </div>
 
@@ -99,10 +121,10 @@ export default function Home() {
           </ul>
         </div>
 
-        <div className="card"><h2>Kupon</h2>
+        <div className="card plain"><h2>Kupon</h2>
           {all === 0 && <div className="empty">Belum ada kupon.</div>}
           {t.coupons.map((c) => (
-            <div className="row" key={c.id} style={{ margin: '8px 0' }}><span>{c.nama}</span>
+            <div className="row cpn-row" key={c.id}><span className={'cpn' + (c.redeemed_at ? ' used' : '') + (fresh.includes(c.id) ? ' fresh' : '')}>{c.nama}</span>
               <span style={{ textAlign: 'right' }}><span className={'chip' + (c.redeemed_at ? ' off' : '')}>{c.redeemed_at ? 'Sudah ditukar' : 'Tersedia'}</span>{c.redeemed_at && <div className="mute">{fmtFull(c.redeemed_at)}</div>}</span></div>
           ))}
         </div>
@@ -127,18 +149,23 @@ export default function Home() {
             </div>}
           </div>
           <div className="ticket">
-            <div className="t-top" style={{ background: '#fff' }}>
-              <div className="row"><h2 style={{ margin: 0 }}>Tiket karyawan</h2><span className="chip">Tersedia</span></div>
-              <div className="price" style={{ marginTop: 10 }}>Gratis</div>
-              <div className="mute">1 tiket untuk 1 karyawan</div>
+            <div className="t-sec up white">
+              <div className="t-ribbon"><span>Tiket masuk</span><PxIcons /><span>Gratis</span></div>
+              <div className="t-top">
+                <div className="row"><h2 style={{ margin: 0 }}>Tiket karyawan</h2><span className="chip">Tersedia</span></div>
+                <div className="price" style={{ marginTop: 10 }}>Gratis</div>
+                <div className="mute">1 tiket untuk 1 karyawan</div>
+              </div>
             </div>
-            <div className="t-tear" />
-            <div className="t-bot" style={{ textAlign: 'left' }}>
-              <b>Tiket ini sudah termasuk</b>
-              <ul className="perk">
-                <li>Akses masuk lewat scan QR</li>
-                {perks.map((p) => <li key={p}>{p}</li>)}
-              </ul>
+            <div className="t-perf" aria-hidden="true" />
+            <div className="t-sec dn">
+              <div className="t-bot" style={{ textAlign: 'left' }}>
+                <b>Tiket ini sudah termasuk</b>
+                <ul className="perk">
+                  <li>Akses masuk lewat scan QR</li>
+                  {perks.map((p) => <li key={p}>{p}</li>)}
+                </ul>
+              </div>
             </div>
           </div>
         </div>

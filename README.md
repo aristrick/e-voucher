@@ -94,3 +94,12 @@ Pemenang dipilih acak oleh server (hanya peserta yang sudah check-in dan belum p
 - Peserta > Reset > Check-in: batalkan check-in satu peserta (kembali Belum check-in, bisa dipindai ulang). Kupon dan undian yang sudah tercatat tidak ikut terhapus. Tercatat di History.
 - Peserta > Kupon: admin bisa menukar kupon secara manual (sama seperti redeem panitia, peserta harus sudah check-in, dicatat sebagai booth "Admin (manual)") dan mengoreksi kupon yang salah ditukar (pindah dari kupon A ke B, waktu penukaran tetap). Keduanya tercatat di History.
 - Keluar (peserta, panitia, admin) kini meminta konfirmasi. Mode scan panitia dibuat lebih jelas: dua tombol besar berwarna (Check-in ungu, Redeem kuning) dengan centang pada mode aktif, bingkai kamera ikut berwarna, dan label "MODE CHECK-IN / MODE REDEEM" di atas kamera. Peserta: filter baru Sudah aktivasi.
+- Panitia: setiap perubahan (aktifkan, nonaktifkan, tambah, ganti password, hapus) meminta konfirmasi dulu.
+- Peserta yang memenangkan hadiah melihat animasi confetti sekitar 6 detik setiap login atau membuka tiket (tidak muncul jika perangkat meminta animasi dikurangi).
+- Animasi loading simpan: `public/loading.gif` (ikon piksel ☐ △ ✕ ○ memantul bergantian) tampil di tengah layar saat menyimpan perubahan di halaman admin, jika proses lebih dari 0,25 detik. Memuat halaman tetap memakai skeleton.
+
+## Update v8
+- Tiket dirombak: gaya klasik pixel, lekukan sobekan kini bolong sungguhan (tidak terpotong), pita atas dengan ikon pixel.
+- Jeda animasi: minimal satu putaran penuh saat peserta login dan saat admin menyimpan perubahan; tidak menunggu lebih lama dari perlu (lihat `holdLoop` di `lib/client.js`).
+- Kupon yang sudah dipakai: nama dicoret merah (tampilan kartu kupon sama seperti v6, tanpa pixel).
+- Favicon pixel baru (`app/icon.svg`). Tidak ada perubahan SQL.

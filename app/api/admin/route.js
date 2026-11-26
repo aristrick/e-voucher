@@ -57,6 +57,21 @@ const H = {
   },
 
   // ---------- peserta ----------
+  // satu peserta (untuk jendela Reset/Kupon): tetap ada walau peserta sudah tidak masuk filter daftar setelah direset
+  async employee(b) {
+    const e = must(await db.from('employees').select('id,nik,nama,cabang,divisi,hp,checked_in_at,pass_hash,max_hadiah').eq('id', String(b.id)).maybeSingle()).data;
+    if (!e) throw new Error('Peserta tidak ditemukan');
+    const [red, dr] = await Promise.all([
+      db.from('redemptions').select('coupon_type_id,created_at,coupon_types(nama)').eq('employee_id', e.id).order('created_at'),
+      db.from('draws').select('id,status,drawn_at,prizes(nama)').eq('employee_id', e.id).order('drawn_at'),
+    ]);
+    const { pass_hash, ...rest } = e;
+    return { row: {
+      ...rest, aktif: !!pass_hash,
+      kupon: must(red).data.map((x) => ({ id: x.coupon_type_id, nama: x.coupon_types?.nama, at: x.created_at })),
+      undian: must(dr).data.map((x) => ({ id: x.id, nama: x.prizes?.nama, status: x.status, at: x.drawn_at })),
+    } };
+  },
   async employees(b) {
     await probe();
     const size = Math.min(Math.max(Number(b.size) || 20, 5), 100);

@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLoad, useAct, Modal, Pager, Loading, Busy, Title, useUI } from '../ui';
 import { adm, fmtFull, fmtDateTime, fmtTime } from '@/lib/client';
 
@@ -15,7 +15,17 @@ export default function Peserta() {
   const { data: cd } = useLoad({ action: 'coupons' });
   useEffect(() => { const t = setTimeout(() => { setQq(q); setPage(1); }, 300); return () => clearTimeout(t); }, [q]);
   const { data: d, err, reload, loading } = useLoad({ action: 'employees', q: qq, status, page, size: SIZE });
-  const { run, Msg, setMsg } = useAct(() => reload(true));
+  // Data peserta di jendela Reset/Kupon diambil ulang per peserta (bukan dari daftar). Dulu, jika peserta hilang dari daftar karena filter
+  // (mis. filter "Sudah check-in" lalu check-in direset), jendela memakai salinan lama sehingga check-in dan undian yang sudah direset muncul lagi.
+  const [one, setOne] = useState(null);
+  const openId = useRef(null); openId.current = rs?.id || kp?.id || null;
+  useEffect(() => { setOne(null); }, [rs?.id, kp?.id]);
+  const refreshOne = async () => {
+    const id = openId.current; if (!id) return;
+    const r = await adm({ action: 'employee', id });
+    if (r.ok && openId.current === id) setOne(r.row);
+  };
+  const { run, Msg, setMsg } = useAct(() => Promise.all([reload(true), refreshOne()]));
 
   const closeImp = () => { setImp(false); setRows([]); setFname(''); setFerr(''); };
   const onFile = async (e) => {
@@ -96,7 +106,7 @@ export default function Peserta() {
       </>}
 
       {kp && (() => {
-        const e = d?.rows.find((x) => x.id === kp.id) || kp;   // data terbaru setelah tiap perubahan
+        const e = (one?.id === kp.id ? one : null) || d?.rows.find((x) => x.id === kp.id) || kp;   // data terbaru setelah tiap perubahan
         const all = cd?.coupons || [], got = new Set(e.kupon.map((k) => k.id)), free = all.filter((c) => !got.has(c.id));
         const tukar = async (c) => (await ask(`Tukarkan kupon ${c.nama} untuk ${e.nama} secara manual? Waktu penukaran dicatat sekarang.`, { title: 'Tukar kupon manual', okText: 'Tukarkan' })) && run({ action: 'redeemManual', nik: e.nik, coupon_id: c.id, kupon_nama: c.nama }, `Kupon ${c.nama} ditukar`);
         const ubah = async (k, t) => (await ask(`Ubah kupon ${k.nama} milik ${e.nama} menjadi ${t.nama}? Waktu penukaran tetap sama.`, { title: 'Ubah kupon?', okText: 'Ya, ubah' })) && run({ action: 'changeKupon', nik: e.nik, from_id: k.id, to_id: t.id, dari_nama: k.nama, ke_nama: t.nama }, `Kupon diubah menjadi ${t.nama}`);
@@ -114,7 +124,7 @@ export default function Peserta() {
       })()}
 
       {rs && (() => {
-        const e = d?.rows.find((x) => x.id === rs.id) || rs;   // data terbaru setelah tiap reset
+        const e = (one?.id === rs.id ? one : null) || d?.rows.find((x) => x.id === rs.id) || rs;   // data terbaru setelah tiap reset
         const done = (t) => run(t.body, t.ok);
         const resetKupon = async (k) => {
           const all = !k;

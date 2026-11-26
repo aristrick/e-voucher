@@ -14,7 +14,8 @@ URUTAN
    app/api/auth/route.js           perbaikan mask() nama dengan spasi ganda
    app/api/staff/route.js          aksi serah hadiah
    app/api/ticket/route.js         data hadiah dan status diambil
-   app/api/admin/route.js          daftar pemenang membawa status diambil
+   app/api/admin/route.js          daftar pemenang membawa status diambil + aksi 'employee' (data satu peserta)
+   app/admin/peserta/page.js       perbaikan jendela Reset/Kupon yang menampilkan data lama
    app/admin/pemenang/page.js      kolom status Belum diambil / Diambil
 
 3. Hentikan "npm run dev", hapus folder .next, lalu jalankan "npm run dev" lagi.

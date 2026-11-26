@@ -16,6 +16,14 @@ export default function Home() {
   const last = useRef(null), tt = useRef(null), partied = useRef(false);
   const [party, setParty] = useState(false), [splash, setSplash] = useState(false), [fresh, setFresh] = useState([]), [enter, setEnter] = useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  // Saat tiket pertama kali tampil (setelah login atau saat halaman dibuka), selalu mulai dari bagian paling atas tiket.
+  const hasT = !!t;
+  useEffect(() => {
+    if (!hasT) return;
+    const top = () => window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    top(); const r = requestAnimationFrame(top); const x = setTimeout(top, 120);
+    return () => { cancelAnimationFrame(r); clearTimeout(x); };
+  }, [hasT]);
   const say = (m) => { setToast(m); clearTimeout(tt.current); tt.current = setTimeout(() => setToast(''), 5000); };
 
   const load = async () => {

@@ -427,3 +427,21 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 .pb-name{margin:0;font-size:24px;max-width:100%;word-break:break-word}
 .pb-state{font-size:14px;font-weight:600;margin-top:8px}
 .pb-item.done .pb-name{background:#e5e5e5}
+
+
+/* ---------- v11: layar undian 3 kolom (daftar peserta | roda | panel) + warna pemenang / tidak hadir ---------- */
+.stage{grid-template-columns:260px minmax(0,1fr) 340px;max-width:1680px}
+.stage-list{position:sticky;top:12px;max-height:min(80vh,800px);display:flex;flex-direction:column;min-height:0}
+.stage-list .sl{list-style:none;margin:0;padding:0;overflow:auto;flex:1;min-height:0;border-top:3px solid #000}
+.stage-list .sl li{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 2px;border-bottom:1px solid rgba(0,0,0,.2);font-size:14px}
+.stage-list .sl li b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stage-list .sl small{color:var(--mute);font-size:12px;flex:none}
+@media(min-width:1181px){.stage>div:nth-child(3){padding-top:clamp(0px,2vh,24px)}}
+@media(max-width:1180px){.stage{grid-template-columns:minmax(0,1fr) 340px}.stage-list{order:3;grid-column:1/-1;position:static;max-height:360px}}
+@media(max-width:900px){.stage{grid-template-columns:1fr}.stage>div:last-child{padding-top:0}}
+.wrow{border:3px solid #000;padding:8px 10px;margin:8px 0}
+.wrow.ok{background:var(--lime);box-shadow:inset 8px 0 0 #2e9e44}
+.wrow.no{background:#ffd0d0;box-shadow:inset 8px 0 0 var(--red-ink)}
+.wrow{padding-left:18px}
+.wrow .chip{background:#fff}.wrow .chip.no{background:var(--red)}
+.wrow .cut{text-decoration:line-through;text-decoration-thickness:2px}

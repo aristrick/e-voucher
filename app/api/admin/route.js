@@ -266,6 +266,14 @@ const H = {
     if (el.error) throw new Error(MIGRATE_MSG);
     return { prizes: prizes.prizes, eligible: el.data || 0, hadir, recent };
   },
+  // daftar peserta yang ikut diundi untuk satu hadiah (kriteria sama dengan undian: sudah check-in, jatah belum penuh, belum pernah menang hadiah itu)
+  async stagePeserta(b) {
+    const LIMIT = 2000;
+    const r = await db.rpc('wheel_candidates', { p_n: LIMIT, p_prize: b.prize_id ? Number(b.prize_id) : null });
+    if (r.error) throw new Error(/function|does not exist|schema cache/i.test(r.error.message) ? MIGRATE_MSG : r.error.message);
+    const list = (r.data || []).map((x) => ({ nama: x.c_nama, nik: x.c_nik })).sort((a, z) => String(a.nama).localeCompare(String(z.nama), 'id'));
+    return { list, truncated: list.length >= LIMIT };
+  },
   async draw(b) {
     const pid = Number(b.prize_id);
     const w = await db.rpc('draw_winner', { p_prize: pid });

@@ -77,6 +77,7 @@ export default function Stage() {
   const [d, setD] = useState(null), [lerr, setLerr] = useState(''), [prize, setPrize] = useState(''), [err, setErr] = useState('');
   const [segs, setSegs] = useState(IDLE), [run, setRun] = useState(false), [win, setWin] = useState(null), [boom, setBoom] = useState(false), [mute, setMute] = useState(false), [note, setNote] = useState('');
   const nt = useRef(null), cv = useRef(null), rot = useRef(0), raf = useRef(0), lock = useRef(false);
+  const [ppl, setPpl] = useState(null);
   useEffect(() => { setMute(sfx.isMuted()); }, []);
 
   const load = useCallback(async () => {
@@ -92,6 +93,14 @@ export default function Stage() {
     return () => { alive = false; cancelAnimationFrame(raf.current); };
   }, [load]);
   useEffect(() => { if (cv.current) paint(cv.current, segs, rot.current); }, [segs, d]);
+  // daftar peserta di kiri roda: diambil ulang saat hadiah diganti atau data berubah (setelah menang / tidak hadir). Tidak berubah selama roda berputar.
+  useEffect(() => {
+    if (!d) return;
+    let dead = false;
+    adm({ action: 'stagePeserta', prize_id: prize ? Number(prize) : null }).then((r) => { if (!dead && r.ok) setPpl(r); });
+    return () => { dead = true; };
+  }, [prize, d]);
+  const pplList = useMemo(() => (ppl?.list || []).map((x) => <li key={x.nik}><b>{x.nama}</b><small>{x.nik}</small></li>), [ppl]);
 
   const animate = (list, idx, done) => {
     const arc = TAU / list.length;
@@ -159,6 +168,12 @@ export default function Stage() {
 
   return (
     <div className="stage">
+      <aside className="card stage-list" aria-label="Peserta yang akan diundi">
+        <div className="row"><h2 style={{ margin: 0 }}>Peserta diundi</h2><span className="chip" aria-label="Jumlah peserta">{ppl ? ppl.list.length + (ppl.truncated ? '+' : '') : '...'}</span></div>
+        <p className="mute" style={{ margin: '4px 0 8px' }}>{cur ? 'Untuk hadiah ' + cur.nama : 'Semua hadiah sudah habis'}</p>
+        {!ppl ? <span className="sk" style={{ height: 120 }} /> : ppl.list.length === 0 ? <div className="empty">Tidak ada peserta yang tersisa.</div> : <ol className="sl">{pplList}</ol>}
+      </aside>
+
       <div>
         <div className="wheel-box">
           <div className="pointer" />
@@ -182,9 +197,14 @@ export default function Stage() {
         </div>
         <div className="card"><h2>Pemenang terakhir</h2>
           {d.recent.length === 0 && <div className="empty">Belum ada pemenang.</div>}
-          {d.recent.map((x) => (
-            <div key={x.id} style={{ margin: '8px 0', textDecoration: x.status === 'forfeited' ? 'line-through' : 'none' }}>
-              <b>{x.employees?.nama}</b><div className="mute">{x.prizes?.nama}</div></div>))}
+          {d.recent.map((x) => {
+            const no = x.status === 'forfeited';
+            return (
+              <div key={x.id} className={'wrow ' + (no ? 'no' : 'ok')}>
+                <div className="row"><b className={no ? 'cut' : ''}>{x.employees?.nama}</b><span className={'chip' + (no ? ' no' : '')}>{no ? 'Tidak hadir' : 'Menang'}</span></div>
+                <div className="mute">{x.prizes?.nama}</div>
+              </div>);
+          })}
         </div>
         <div className="gap">
           <a className="btn sm w" href="/admin">Dashboard</a>

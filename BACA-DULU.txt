@@ -8,13 +8,13 @@ URUTAN
 2. Salin semua file di bawah ke proyek (timpa):
 
    app/page.js                     tiket peserta: polling 25 detik + banner hadiah di atas tiket
-   app/theme.css                   gaya mode Hadiah dan banner hadiah
+   app/theme.css                   gaya mode Hadiah, banner hadiah, layar undian 3 kolom, warna pemenang/tidak hadir
    app/staff/page.js               halaman panitia: mode HADIAH, popup tidak menutup sendiri
-   app/stage/page.js               undian: perbaikan hadiah salah nama dan undian ganda
+   app/stage/page.js               undian: perbaikan hadiah salah nama dan undian ganda + daftar peserta di kiri roda + warna hijau/merah
    app/api/auth/route.js           perbaikan mask() nama dengan spasi ganda
    app/api/staff/route.js          aksi serah hadiah
    app/api/ticket/route.js         data hadiah dan status diambil
-   app/api/admin/route.js          daftar pemenang membawa status diambil + aksi 'employee' (data satu peserta)
+   app/api/admin/route.js          daftar pemenang membawa status diambil + aksi 'employee' (data satu peserta) + aksi 'stagePeserta' (daftar peserta undian)
    app/admin/peserta/page.js       perbaikan jendela Reset/Kupon yang menampilkan data lama
    app/admin/pemenang/page.js      kolom status Belum diambil / Diambil
 

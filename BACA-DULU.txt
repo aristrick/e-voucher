@@ -18,6 +18,7 @@ URUTAN
    app/pwfield.js                  BARU: kolom password dengan ikon mata (dipakai login, tiket, panitia)
    app/login/page.js               ikon mata di login panitia
    app/admin/ui.js                 menu cepat (Layar undian, Halaman scan, Keluar akun) di baris judul pojok kanan atas
+   app/admin/hadiah/page.js        tombol "Buka layar undian" ganda dihapus
    app/admin/shell.js              tombol-tombol itu dihapus dari dasar sidebar
    app/admin/panitia/page.js       ikon mata di kolom password panitia
    app/admin/peserta/page.js       perbaikan jendela Reset/Kupon yang menampilkan data lama

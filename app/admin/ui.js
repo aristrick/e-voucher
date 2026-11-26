@@ -191,8 +191,8 @@ export const Title = ({ children, right }) => {
       <div className="ptools">
         {right && <><div className="gap">{right}</div><span className="psep" aria-hidden="true" /></>}
         <div className="gap" role="group" aria-label="Menu cepat">
-          <a className="btn sm w" href="/stage">Layar undian</a>
-          <a className="btn sm w" href="/staff">Halaman scan</a>
+          <a className="btn sm p" href="/stage">Layar undian</a>
+          <a className="btn sm g" href="/staff">Halaman scan</a>
           <button className="btn sm r" onClick={out}>Keluar akun</button>
         </div>
       </div>

@@ -468,3 +468,6 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 .pzd-list li.none{cursor:default;color:#555;font-weight:600}
 
 .recent-list{max-height:min(44vh,440px);overflow:auto;padding-right:4px}
+
+/* v12.1: warna menu cepat: Layar undian ungu, Halaman scan hijau, Keluar akun merah */
+.btn.p{background:var(--purple)}

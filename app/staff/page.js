@@ -120,7 +120,7 @@ export default function Staff() {
         <button type="button" className={'mode hd' + (mode === 'prize' ? ' on' : '')} aria-pressed={mode === 'prize'} onClick={() => setMode('prize')}>
           <b>{mode === 'prize' ? '✓ ' : ''}HADIAH</b><span>Serahkan hadiah undian ke pemenang</span></button>
         <button type="button" className={'mode ky' + (mode === 'key' ? ' on' : '')} aria-pressed={mode === 'key'} onClick={() => setMode('key')}>
-          <b>{mode === 'key' ? '✓ ' : ''}KUNCI</b><span>Serahkan kunci kamar ke pemegang kunci</span></button>
+          <b>{mode === 'key' ? '✓ ' : ''}KUNCI</b><span>Scan pertama di kamar jadi pembawa kunci</span></button>
       </div>
       {mode === 'redeem' && (coupons.length
         ? <select aria-label="Kupon yang ditukar" value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>

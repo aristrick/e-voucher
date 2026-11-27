@@ -4,7 +4,7 @@ import { hash } from '@/lib/auth';
 import { getSettings, DEFAULTS } from '@/lib/settings';
 import { actorOf, logAct } from '@/lib/log';
 import { SURVEY_MSG, surveyOpen, cleanQuestion } from '@/lib/survey';
-import { ROOM_MSG, KEY_MSG, roomEnabledNow, cleanRoom, clearHolders, ensureHolders } from '@/lib/rooms';
+import { ROOM_MSG, KEY_MSG, roomEnabledNow, cleanRoom, clearHolders } from '@/lib/rooms';
 export const dynamic = 'force-dynamic';
 
 const must = (r) => {
@@ -345,34 +345,30 @@ const H = {
       const already = must(await db.from('employees').select('id').eq('room_id', rid).in('id', ids)).data.length;
       if (now + (ids.length - already) > room.kapasitas) throw new Error(`Kamar ${room.nomor} penuh (kapasitas ${room.kapasitas}, terisi ${now}). Naikkan kapasitas lewat tombol Ubah bila perlu.`);
     }
-    const prev = must(await db.from('employees').select('room_id').in('id', ids)).data.map((x) => x.room_id).filter((x) => x && x !== rid);
     const r = must(await db.from('employees').update({ room_id: rid }).in('id', ids).select('id'));
     await clearHolders(ids, rid);               // yang pindah tidak lagi memegang kunci kamar lamanya
-    await ensureHolders([rid, ...prev]);        // kamar tanpa pemegang kunci otomatis dapat satu
     return { assigned: r.data.length };
   },
   async unassignRoom(b) {
     const ids = [...new Set((Array.isArray(b.employee_ids) ? b.employee_ids : []).map(String))].slice(0, 200);
     if (!ids.length) throw new Error('Pilih peserta dulu');
-    const prev = must(await db.from('employees').select('room_id').in('id', ids)).data.map((x) => x.room_id).filter(Boolean);
     const r = rm(await db.from('employees').update({ room_id: null }).in('id', ids).select('id'));
     await clearHolders(ids);
-    await ensureHolders(prev);
     return { removed: r.data.length };
   },
-  // pemegang kunci: harus penghuni kamar itu. Mengganti pemegang kunci mengosongkan status "sudah diambil".
+  // ganti pemegang kunci manual (misalnya panitia salah scan): harus penghuni kamar itu. Pemegang baru langsung tercatat sebagai pembawa kunci.
   async setKeyHolder(b) {
     const rid = Number(b.room_id), eid = String(b.employee_id || '');
     if (!eid) throw new Error('Pilih peserta dulu');
     const e = must(await db.from('employees').select('id,room_id').eq('id', eid).maybeSingle()).data;
     if (!e || e.room_id !== rid) throw new Error('Peserta ini bukan penghuni kamar tersebut');
-    const r = rm(await db.from('rooms').update({ key_holder: eid, key_taken_at: null, key_taken_by: null }).eq('id', rid).select('id'));
+    const r = rm(await db.from('rooms').update({ key_holder: eid, key_taken_at: new Date().toISOString(), key_taken_by: 'admin' }).eq('id', rid).select('id'));
     if (!r.data.length) throw new Error('Kamar tidak ditemukan');
     return {};
   },
-  // kunci dikembalikan atau salah serah: status kembali "belum diambil" supaya pemegang kunci bisa mengambilnya lagi
+  // kunci dikembalikan atau salah serah: pemegang kunci dikosongkan, jadi penghuni mana pun bisa discan pertama lagi
   async resetKey(b) {
-    const r = rm(await db.from('rooms').update({ key_taken_at: null, key_taken_by: null }).eq('id', Number(b.room_id)).select('id'));
+    const r = rm(await db.from('rooms').update({ key_holder: null, key_taken_at: null, key_taken_by: null }).eq('id', Number(b.room_id)).select('id'));
     if (!r.data.length) throw new Error('Kamar tidak ditemukan');
     return {};
   },
@@ -403,7 +399,7 @@ const H = {
       const r = must(await db.from('employees').select('room_id').not('room_id', 'is', null).range(i, i + 999)).data;
       r.forEach((x) => { occ[x.room_id] = (occ[x.room_id] || 0) + 1; }); if (r.length < 1000) break;
     }
-    let assigned = 0, notFound = 0, full = 0, mismatch = 0; const byRoom = {}, oldRooms = [];
+    let assigned = 0, notFound = 0, full = 0, mismatch = 0; const byRoom = {};
     for (const r of plan.values()) {
       const e = emps.get(r.nik); if (!e) { notFound++; continue; }
       // nama di Excel hanya pemeriksa silang: kalau beda dari data peserta tetap diproses, tapi dihitung sebagai peringatan
@@ -413,10 +409,9 @@ const H = {
       if (room.kapasitas && (occ[room.id] || 0) >= room.kapasitas) { full++; continue; }
       if (e.room_id) occ[e.room_id] = Math.max(0, (occ[e.room_id] || 0) - 1);
       occ[room.id] = (occ[room.id] || 0) + 1;
-      (byRoom[room.id] ||= []).push(e.id); if (e.room_id) oldRooms.push(e.room_id); assigned++;
+      (byRoom[room.id] ||= []).push(e.id); assigned++;
     }
     for (const [rid, ids] of Object.entries(byRoom)) for (let i = 0; i < ids.length; i += 100) { must(await db.from('employees').update({ room_id: Number(rid) }).in('id', ids.slice(i, i + 100))); await clearHolders(ids.slice(i, i + 100), rid); }
-    await ensureHolders([...Object.keys(byRoom), ...oldRooms]);
     return { assigned, created, notFound, full, mismatch, skipped, duplicates: rows.length - plan.size };
   },
 
@@ -509,7 +504,7 @@ const LOGS = {
   assignRoom: ['kamar', (b, r, c) => (r.assigned === 1 && b.nama_peserta ? `Menempatkan ${String(b.nama_peserta).slice(0, 60)} di kamar ${c.room?.nomor || ''}` : `Menempatkan ${r.assigned} peserta di kamar ${c.room?.nomor || ''}`)],
   unassignRoom: ['kamar', (b, r) => (r.removed === 1 && b.nama_peserta ? `Mengeluarkan ${String(b.nama_peserta).slice(0, 60)} dari kamar ${String(b.nomor_kamar || '').slice(0, 20)}` : `Mengeluarkan ${r.removed} peserta dari kamar`)],
   setKeyHolder: ['kamar', (b) => `Menetapkan ${String(b.nama_peserta || '').slice(0, 60)} sebagai pemegang kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)}`],
-  resetKey: ['kamar', (b) => `Mereset status kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)} (kunci kembali belum diambil)`],
+  resetKey: ['kamar', (b) => `Mereset kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)} (pemegang kunci dikosongkan, kunci kembali belum diambil)`],
   importRooms: ['kamar', (b, r) => `Import pembagian kamar: ${r.assigned} peserta` + (r.created ? `, ${r.created} kamar baru` : '') + (r.notFound ? `, ${r.notFound} NIK tidak ditemukan` : '') + (r.full ? `, ${r.full} gagal (kamar penuh)` : '')],
   saveSettings: ['pengaturan', () => 'Menyimpan pengaturan acara'],
   setSurveyOpen: ['survey', (b) => `${b.open ? 'Membuka' : 'Menutup'} survey acara`],

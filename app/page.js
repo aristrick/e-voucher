@@ -176,22 +176,28 @@ export default function Home() {
                   <div className="room-note">{t.kamar.jumlah} penghuni{t.kamar.kapasitas ? ' dari ' + t.kamar.kapasitas + ' tempat' : ''}</div>
                 </div>
               </div>
-              {t.kamar.kunci && (() => {
+              {(() => {
                 const k = t.kamar.kunci;
+                if (!k) return (
+                  <div className="key-box" role="status">
+                    <KeyIcon size={22} />
+                    <div>
+                      <b>Kunci kamar belum diambil</b>
+                      <div className="mu">Saat datang, tunjukkan QR tiket ke panitia. Siapa pun penghuni kamar yang discan lebih dulu menjadi pembawa kunci.</div>
+                    </div>
+                  </div>);
                 return (
                   <div className={'key-box' + (k.saya ? ' me' : '')} role="status">
                     <KeyIcon size={22} />
                     <div>
-                      <b>{k.saya ? 'Kamu pemegang kunci kamar ini' : 'Pemegang kunci: ' + k.pemegang}</b>
-                      <div className="mu">{k.diambil_at
-                        ? (k.saya ? 'Kunci sudah kamu ambil' : 'Kunci sudah diambil atas nama ' + k.pemegang) + ' · ' + fmtFull(k.diambil_at)
-                        : k.saya ? 'Kunci belum diambil. Tunjukkan QR tiket ke panitia untuk mengambil kunci kamar.' : 'Kunci belum diambil. Hanya ' + k.pemegang + ' yang bisa mengambilnya.'}</div>
+                      <b>{k.saya ? 'Kamu pembawa kunci kamar ini' : 'Pembawa kunci: ' + k.pemegang}</b>
+                      <div className="mu">{(k.saya ? 'Kunci sudah kamu ambil' : 'Kunci sudah diambil atas nama ' + k.pemegang) + (k.diambil_at ? ' · ' + fmtFull(k.diambil_at) : '')}</div>
                     </div>
                   </div>);
               })()}
               <h3>Teman sekamar{t.kamar.teman.length ? ' (' + t.kamar.teman.length + ')' : ''}</h3>
               {t.kamar.teman.length === 0 ? <p className="mute" style={{ margin: 0 }}>Belum ada teman sekamar yang terdaftar.</p> : (
-                <ul className="mates">{t.kamar.teman.map((m, i) => <li key={i} className={m.kunci ? 'key' : ''}><b>{m.nama}{m.kunci && <> <KeyIcon size={14} label="Pemegang kunci" /></>}</b>{m.unit && <span className="mu">{m.unit}</span>}</li>)}</ul>)}
+                <ul className="mates">{t.kamar.teman.map((m, i) => <li key={i} className={m.kunci ? 'key' : ''}><b>{m.nama}{m.kunci && <> <KeyIcon size={14} label="Pembawa kunci" /></>}</b>{m.unit && <span className="mu">{m.unit}</span>}</li>)}</ul>)}
             </>}
           </div>
         )}

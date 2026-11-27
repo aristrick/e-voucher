@@ -64,8 +64,9 @@ async function handle(req, b) {
     }
 
     if (action === 'key') {
-      // serahkan kunci kamar: hanya pemegang kunci yang boleh mengambil, dan hanya sekali. Penandaan memakai satu update bersyarat
-      // (hanya berhasil jika kunci belum diambil), jadi dua panitia yang memindai QR yang sama bersamaan tidak bisa menyerahkan kunci dua kali
+      // serah kunci kamar: penghuni yang PERTAMA discan di kamar itu otomatis menjadi pemegang kunci, tanpa ditandai lebih dulu.
+      // Setelah itu penghuni lain di kamar yang sama ditolak. Penandaan memakai satu update bersyarat (hanya berhasil selama
+      // kamar belum punya pemegang kunci), jadi dua panitia yang memindai dua penghuni sekamar bersamaan tidak bisa menyerahkan kunci dua kali.
       const pe = await db.from('employees').select('id,nama,nik,cabang,divisi,room_id').or(match).maybeSingle();
       if (pe.error) return R({ ok: false, aksi: 'key', msg: /room_id/i.test(pe.error.message) ? 'Database belum diperbarui. Jalankan supabase/migration-v11.sql dan migration-v12.sql di Supabase SQL Editor.' : pe.error.message }, 500);
       const e = pe.data;
@@ -78,22 +79,24 @@ async function handle(req, b) {
       const room = rr.data;
       if (!room) return R({ ok: false, aksi: 'key', ...who, msg: 'Kamar peserta tidak ditemukan' });
       const kamar = room.nomor + (room.nama ? ' · ' + room.nama : '');
-      if (!room.key_holder) return R({ ok: false, aksi: 'key', ...who, kamar, msg: `Kamar ${room.nomor} belum punya pemegang kunci. Atur dulu di halaman admin Kamar` });
-      if (room.key_holder !== e.id) {
-        const h = await db.from('employees').select('nama').eq('id', room.key_holder).maybeSingle();
-        const hn = h.data?.nama || 'penghuni lain';
-        return R({ ok: false, aksi: 'key', ...who, kamar, at: room.key_taken_at, msg: room.key_taken_at ? `Kunci kamar ${room.nomor} sudah diambil oleh ${hn}` : `Bukan pemegang kunci. Pemegang kunci kamar ${room.nomor}: ${hn}` });
-      }
-      if (room.key_taken_at) return R({ ok: false, aksi: 'key', ...who, kamar, at: room.key_taken_at, msg: `Kunci kamar ${room.nomor} sudah diambil sebelumnya` });
+      // kunci kamar ini sudah diserahkan (ke peserta ini atau penghuni lain)
+      const sudah = async (at) => {
+        if (room.key_holder === e.id) return R({ ok: false, aksi: 'key', ...who, kamar, at, msg: `Kunci kamar ${room.nomor} sudah diambil sebelumnya oleh ${e.nama}` });
+        const h = room.key_holder ? await db.from('employees').select('nama').eq('id', room.key_holder).maybeSingle() : { data: null };
+        return R({ ok: false, aksi: 'key', ...who, kamar, at, msg: `Kunci kamar ${room.nomor} sudah dibawa oleh ${h.data?.nama || 'penghuni lain'}` });
+      };
+      if (room.key_holder) return sudah(room.key_taken_at);
       const now = new Date().toISOString();
-      const up = await db.from('rooms').update({ key_taken_at: now, key_taken_by: String(booth || '').slice(0, 40) || null })
-        .eq('id', room.id).eq('key_holder', e.id).is('key_taken_at', null).select('id');
+      const up = await db.from('rooms').update({ key_holder: e.id, key_taken_at: now, key_taken_by: String(booth || '').slice(0, 40) || null })
+        .eq('id', room.id).is('key_holder', null).select('id');
       if (up.error) return R({ ok: false, aksi: 'key', ...who, kamar, msg: up.error.message }, 500);
       if (!up.data?.length) {
-        const { data: again } = await db.from('rooms').select('key_taken_at').eq('id', room.id).maybeSingle();
-        return R({ ok: false, aksi: 'key', ...who, kamar, at: again?.key_taken_at, msg: `Kunci kamar ${room.nomor} sudah diambil sebelumnya` });
+        // kalah cepat dari scan lain di kamar yang sama: baca ulang siapa pemenangnya
+        const { data: again } = await db.from('rooms').select('key_holder,key_taken_at').eq('id', room.id).maybeSingle();
+        room.key_holder = again?.key_holder || null;
+        return sudah(again?.key_taken_at);
       }
-      return R({ ok: true, aksi: 'key', ...who, kamar, at: now, msg: `Serahkan kunci kamar ${room.nomor}` });
+      return R({ ok: true, aksi: 'key', ...who, kamar, at: now, msg: `Serahkan kunci kamar ${room.nomor}. ${e.nama} jadi pembawa kunci` });
     }
 
     if (action !== 'redeem') return [json({ ok: false, msg: 'Aksi tidak dikenal' }, 400)];

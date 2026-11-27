@@ -459,6 +459,14 @@ const H = {
     return { rows: r.data, total: r.count || 0, page, size, last24: day.count || 0 };
   },
 
+  // ---------- nama saat cek NIK ----------
+  // saklar tampil lengkap atau disensor; belum pernah diatur dianggap tampil lengkap
+  async nameVisible() {
+    const r = must(await db.from('settings').select('value').eq('key', 'name_visible').maybeSingle());
+    return { visible: r.data?.value !== '0' };
+  },
+  async setNameVisible(b) { must(await db.from('settings').upsert({ key: 'name_visible', value: b.show ? '1' : '0' }, { onConflict: 'key' })); return {}; },
+
   // ---------- pengaturan acara ----------
   async getSettings() { return { settings: await getSettings() }; },
   async saveSettings(b) {
@@ -507,6 +515,7 @@ const LOGS = {
   resetKey: ['kamar', (b) => `Mereset kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)} (pemegang kunci dikosongkan, kunci kembali belum diambil)`],
   importRooms: ['kamar', (b, r) => `Import pembagian kamar: ${r.assigned} peserta` + (r.created ? `, ${r.created} kamar baru` : '') + (r.notFound ? `, ${r.notFound} NIK tidak ditemukan` : '') + (r.full ? `, ${r.full} gagal (kamar penuh)` : '')],
   saveSettings: ['pengaturan', () => 'Menyimpan pengaturan acara'],
+  setNameVisible: ['pengaturan', (b) => `${b.show ? 'Menampilkan nama lengkap' : 'Menyensor nama'} peserta saat cek NIK`],
   setSurveyOpen: ['survey', (b) => `${b.open ? 'Membuka' : 'Menutup'} survey acara`],
   addSurveyQuestion: ['survey', (b) => `Menambah pertanyaan survey: ${clean(b.teks).slice(0, 80)}`],
   updateSurveyQuestion: ['survey', (b) => `Mengubah pertanyaan survey: ${clean(b.teks).slice(0, 80)}`],

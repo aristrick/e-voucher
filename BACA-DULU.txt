@@ -1,4 +1,4 @@
-CARA PASANG (v14: logo Gotik di halaman depan + pembawa kunci otomatis, wajib check-in)
+CARA PASANG (v15: logo Gotik di halaman depan + pembawa kunci otomatis, wajib check-in)
 ===========================================================
 Folder di zip ini meniru susunan proyekmu (e-voucher). Cukup salin isinya ke folder proyek
 dan pilih "Timpa / Replace" untuk file yang sudah ada.
@@ -10,7 +10,10 @@ URUTAN
    Kamar yang kuncinya sudah benar-benar diambil tidak diubah.
 2. Salin semua file zip ke proyek (timpa). Yang berubah di v13:
    public/gotik-logo.png          BARU: logo Gotik (latar transparan). Masuk ke folder public proyek
-   app/page.js, app/theme.css     logo kecil di samping label E-tiket khusus karyawan; logo besar di kanan bawah (desktop dan tablet saja)
+   app/page.js, app/theme.css     logo kecil di samping label E-tiket khusus karyawan
+   app/api/auth/route.js          nama saat cek NIK tampil lengkap atau disensor sesuai saklar admin (default: lengkap)
+   app/admin/cek-nik/page.js      BARU: halaman admin dengan tombol Tampilkan nama lengkap / Sensor nama
+   app/admin/shell.js             menu Cek NIK
    supabase/migration-v13.sql     BARU (lewati kalau sudah pernah dijalankan)
    lib/rooms.js                   tidak lagi menunjuk pemegang kunci otomatis
    app/api/staff/route.js         scan KUNCI wajib sudah check-in; scan pertama di kamar = pembawa kunci; penghuni lain ditolak

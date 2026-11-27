@@ -12,8 +12,8 @@ const fail = (table, r) => {
 };
 const good = (table, r) => (r.fail_count || r.locked_until) ? db.from(table).update({ fail_count: 0, locked_until: null }).eq('id', r.id) : null;
 // nomor HP disamakan formatnya: 0812..., +62812..., 62812... dianggap sama
-const phone = (v) => { let d = String(v || '').replace(/\D/g, ''); if (d.startsWith('62')) d = '0' + d.slice(2); else if (d && !d.startsWith('0')) d = '0' + d; return d; };
 const mask = (s) => String(s || '').split(/\s+/).filter(Boolean).map((w) => w[0] + '*'.repeat(Math.max(w.length - 1, 0))).join(' ');
+const phone = (v) => { let d = String(v || '').replace(/\D/g, ''); if (d.startsWith('62')) d = '0' + d.slice(2); else if (d && !d.startsWith('0')) d = '0' + d; return d; };
 
 export async function POST(req) {
   if (!process.env.SESSION_SECRET) return json({ error: 'SESSION_SECRET belum diisi di Environment Variables' }, 500);
@@ -42,7 +42,10 @@ export async function POST(req) {
 
   if (b.action === 'lookup') {
     if (!e) return json({ error: 'NIK tidak ditemukan. Cek lagi atau hubungi panitia.' }, 404);
-    return json({ ok: true, nama: mask(e.nama), activated: !!e.pass_hash, hp_required: !!e.hp });
+    // saklar admin (settings.name_visible): '0' = nama disensor (A*** S*******), selain itu nama lengkap
+    const sv = await db.from('settings').select('value').eq('key', 'name_visible').maybeSingle();
+    const full = sv.data?.value !== '0';
+    return json({ ok: true, nama: full ? e.nama : mask(e.nama), activated: !!e.pass_hash, hp_required: !!e.hp });
   }
   if (e && isLocked(e)) return json({ error: LOCKED }, 429);
 

@@ -82,7 +82,7 @@ export default function Kamar() {
 
         {d.rooms.length === 0 ? <div className="card empty">Belum ada kamar. Klik Tambah kamar, atau Import Excel untuk membuat kamar dan pembagian penghuni sekaligus.</div>
           : list.length === 0 ? <div className="card empty">Tidak ada kamar atau penghuni yang cocok.</div> : (
-          <div className={'tw stick' + (loading ? ' busy' : '')}><table className="rt">
+          <div className={'tw stick kt' + (loading ? ' busy' : '')}><table className="rt kamar">
             <thead><tr><th>Kamar</th><th>Terisi</th><th>Penghuni</th><th>Kunci</th><th className="act">Aksi</th></tr></thead>
             <tbody>{list.map((r) => {
               const n = r.penghuni.length, full = r.kapasitas && n >= r.kapasitas;
@@ -91,7 +91,7 @@ export default function Kamar() {
                   <td className="nm"><b>{r.nomor}</b>{r.nama && <span className="sub">{r.nama}</span>}{r.catatan && <span className="sub">{r.catatan}</span>}</td>
                   <td className="nw" data-label="Terisi"><span className={'chip' + (full ? ' warn' : n ? '' : ' off')}>{n}{r.kapasitas ? ' / ' + r.kapasitas : ''}</span></td>
                   <td data-label="Penghuni">{n === 0 ? <span className="dim">Belum ada penghuni</span> : <span className="kps">{r.penghuni.map((p) => p.id === r.key_holder ? <span className="kp key" key={p.id} title="Pembawa kunci"><KeyIcon size={12} />{p.nama}</span> : <span className="kp" key={p.id}>{p.nama}</span>)}</span>}</td>
-                  <td className="nw" data-label="Kunci">{!r.key_holder ? (n === 0 ? <span className="dim">-</span> : <span className="chip warn">Belum diambil</span>) : <span>
+                  <td className="nw kc" data-label="Kunci">{!r.key_holder ? (n === 0 ? <span className="dim">-</span> : <span className="chip warn">Belum diambil</span>) : <span>
                     <span className={'chip' + (r.key_returned_at ? ' off' : '')}>{r.key_returned_at ? 'Dikembalikan' : 'Sudah diambil'}</span>
                     <span className="sub" style={{ marginTop: 3 }}>{(r.penghuni.find((p) => p.id === r.key_holder) || {}).nama}</span>
                     {r.key_taken_at && <span className="sub">Diambil {fmtDateTime(r.key_taken_at)}</span>}

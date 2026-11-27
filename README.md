@@ -6,7 +6,8 @@ Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon 
 - `/` peserta: halaman depan acara + alur klaim tiket (Cek NIK, Verifikasi, Tiket terbit). Setelah masuk tampil e-tiket, status tiket, dan kupon.
 - `/login` login panitia dan admin.
 - `/staff` panitia: mode Check-in (pintu) dan Redeem (booth), nama booth, riwayat scan.
-- `/admin` ringkasan. Sub-halaman: `/admin/peserta` (cari, filter, tambah/ubah peserta, check-in manual, import dan ekspor Excel), `/admin/panitia`, `/admin/kupon`, `/admin/hadiah`, `/admin/pemenang`, `/admin/history` (riwayat semua aktivitas), `/admin/pengaturan` (nama, tanggal, lokasi acara).
+- `/admin` ringkasan. Sub-halaman: `/admin/peserta` (cari, filter, tambah/ubah peserta, check-in manual, import dan ekspor Excel), `/admin/panitia`, `/admin/kupon`, `/admin/hadiah`, `/admin/pemenang`, `/admin/kamar` (pembagian kamar untuk acara menginap), `/admin/history` (riwayat semua aktivitas), `/admin/pengaturan` (nama, tanggal, lokasi acara).
+- Kamar: di `/admin/kamar` admin menambah kamar (nomor, nama, kapasitas, keterangan), mengatur penghuni (cari lalu Masukkan, atau Import Excel: NIK, Nomor Kamar, Nama Kamar), dan menyalakan fitur. Selama belum diaktifkan, tiket peserta tidak menampilkan apa-apa soal kamar. Setelah aktif, tiket peserta memuat kartu Kamar kamu (nomor, nama, daftar teman sekamar).
 - `/survey` peserta: survey umpan balik acara (muncul sebagai kartu "Survey acara" di tiket saat survey dibuka admin).
 - `/admin/survey` admin: buka/tutup survey, hasil per pertanyaan, ekspor Excel, dan editor pertanyaan.
 - `/stage` admin: layar undian spin wheel (Spasi untuk memutar).
@@ -18,7 +19,7 @@ Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon 
 
 ## 1. Supabase
 1. Buat project di supabase.com (pilih region Singapore).
-2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`, `supabase/migration-v4.sql`, `supabase/migration-v6.sql`, `supabase/migration-v9.sql`.
+2. SQL Editor, jalankan berurutan: `supabase/schema.sql`, `supabase/migration-login.sql`, `supabase/grants.sql`, `supabase/migration-v2.sql`, `supabase/migration-v3.sql`, `supabase/migration-v4.sql`, `supabase/migration-v6.sql`, `supabase/migration-v9.sql`, `supabase/migration-v10.sql`, `supabase/migration-v11.sql`.
    Jika database sudah berjalan dari versi lama, jalankan `migration-v2.sql` lalu `migration-v3.sql` (v3 wajib untuk jatah hadiah per karyawan). Tanpa file ini, dashboard dan undian tidak jalan.
 3. Project Settings > API Keys: salin Project URL dan secret/service_role key. RAHASIA, jangan di-commit.
 

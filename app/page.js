@@ -44,6 +44,7 @@ export default function Home() {
       if (baru.length) setFresh((f) => [...f, ...baru.map((c) => c.id)]);
       if (baru.length) say('Kupon ' + baru.map((c) => c.nama).join(', ') + ' berhasil ditukar');
       else if (prev.prizes && (r.prizes || []).some((p) => p.claimed_at && !prev.prizes.find((x) => x.id === p.id)?.claimed_at)) say('Hadiah kamu sudah diserahkan. Selamat menikmati!');
+      else if (r.kamar?.dapat && !prev.kamar?.dapat) say('Pembagian kamar sudah tersedia: kamar ' + r.kamar.nomor + (r.kamar.nama ? ' (' + r.kamar.nama + ')' : ''));
       else if (r.hadir && !prev.hadir) say('Check-in berhasil. Selamat datang!');
       else if (r.win && !prev.win) say('Selamat, kamu memenangkan ' + r.win + '!');
     }
@@ -160,6 +161,25 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {t.kamar && (
+          <div className="card room-card" aria-label="Pembagian kamar">
+            <h2>Kamar kamu</h2>
+            {!t.kamar.dapat ? <p className="mute" style={{ margin: 0 }}>Pembagian kamar belum tersedia untuk kamu. Hubungi panitia kalau kamu belum mendapat kamar.</p> : <>
+              <div className="room-top">
+                <div className="room-no"><small>KAMAR</small>{t.kamar.nomor}</div>
+                <div>
+                  {t.kamar.nama && <div className="room-name">{t.kamar.nama}</div>}
+                  {t.kamar.catatan && <div className="room-note">{t.kamar.catatan}</div>}
+                  <div className="room-note">{t.kamar.jumlah} penghuni{t.kamar.kapasitas ? ' dari ' + t.kamar.kapasitas + ' tempat' : ''}</div>
+                </div>
+              </div>
+              <h3>Teman sekamar{t.kamar.teman.length ? ' (' + t.kamar.teman.length + ')' : ''}</h3>
+              {t.kamar.teman.length === 0 ? <p className="mute" style={{ margin: 0 }}>Belum ada teman sekamar yang terdaftar.</p> : (
+                <ul className="mates">{t.kamar.teman.map((m, i) => <li key={i}><b>{m.nama}</b>{m.unit && <span className="mu">{m.unit}</span>}</li>)}</ul>)}
+            </>}
+          </div>
+        )}
 
         <div className="card"><h2>Status tiket</h2>
           <ul className="tl">

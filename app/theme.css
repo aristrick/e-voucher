@@ -184,7 +184,7 @@ td.act,th.act{width:1%;white-space:nowrap;text-align:right}
 /* kategori riwayat */
 .kat{display:inline-block;min-width:92px;text-align:center;border:2px solid #000;border-radius:0;padding:1px 8px;font-size:12px;font-weight:700;background:#fff;white-space:nowrap}
 .kat.checkin{background:var(--lime)}.kat.redeem{background:var(--blue)}.kat.peserta{background:var(--yellow)}
-.kat.panitia{background:var(--purple)}.kat.kupon{background:var(--pink)}.kat.hadiah{background:#ffb877}.kat.undian{background:#9ff0d0}.kat.pengaturan{background:#e5e5e5}.kat.survey{background:#b8f0ff}
+.kat.panitia{background:var(--purple)}.kat.kupon{background:var(--pink)}.kat.hadiah{background:#ffb877}.kat.undian{background:#9ff0d0}.kat.pengaturan{background:#e5e5e5}.kat.survey{background:#b8f0ff}.kat.kamar{background:#f5c6ff}
 .feed{list-style:none;margin:0;padding:0}
 .feed li{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:2px dashed #000}
 .feed li:last-child{border-bottom:0}
@@ -484,3 +484,20 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 /* Tombol ikon mata */
 .pw input{padding-right:64px}
 .pw-eye{width:52px;height:36px;right:5px}
+
+/* ---------- Kamar: halaman admin dan kartu di tiket peserta ---------- */
+.mate-row{padding:8px 0;border-bottom:2px dashed #000;align-items:center;flex-wrap:nowrap}
+.mate-row:last-child{border-bottom:0}
+.mate-row>span:first-child{min-width:0}
+.mate-row .sub{white-space:normal}
+.mate-list{max-height:320px;overflow:auto;border:3px solid #000;padding:0 10px;background:#fff}
+.room-card .room-top{display:flex;gap:14px;align-items:center}
+.room-no{flex:none;min-width:84px;text-align:center;background:var(--yellow);border:3px solid #000;padding:8px 12px;font-family:'Pixelify Sans','Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:34px;line-height:1.1;word-break:break-all}
+.room-no small{display:block;font-size:12px;font-weight:700;letter-spacing:.4px}
+.room-name{font-family:'Pixelify Sans','Space Grotesk',system-ui,sans-serif;font-weight:700;font-size:22px;line-height:1.2;word-break:break-word}
+.room-note{color:var(--mute);font-size:14px;margin-top:2px}
+.room-card h3{margin:14px 0 6px}
+.mates{list-style:none;margin:0;padding:0}
+.mates li{padding:7px 0;border-bottom:2px dashed #000;display:flex;flex-direction:column}
+.mates li:last-child{border-bottom:0}
+.mates .mu{color:var(--mute);font-size:13px}

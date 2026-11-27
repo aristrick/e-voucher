@@ -3,7 +3,7 @@ import { usePathname } from 'next/navigation';
 import { UIProvider } from './ui';
 const NAV = [
   ['/admin', 'Ringkasan'], ['/admin/peserta', 'Peserta'], ['/admin/panitia', 'Panitia'],
-  ['/admin/kupon', 'Kupon'], ['/admin/hadiah', 'Hadiah'], ['/admin/pemenang', 'Pemenang'], ['/admin/survey', 'Survey'], ['/admin/history', 'History'], ['/admin/pengaturan', 'Pengaturan'],
+  ['/admin/kupon', 'Kupon'], ['/admin/hadiah', 'Hadiah'], ['/admin/pemenang', 'Pemenang'], ['/admin/kamar', 'Kamar'], ['/admin/survey', 'Survey'], ['/admin/history', 'History'], ['/admin/pengaturan', 'Pengaturan'],
 ];
 export default function Shell({ children }) {
   const path = usePathname();

@@ -1,28 +1,30 @@
-CARA PASANG
-===========
+CARA PASANG (v11: pembagian kamar)
+==================================
 Folder di zip ini meniru susunan proyekmu (e-voucher). Cukup salin isinya ke folder proyek
 dan pilih "Timpa / Replace" untuk file yang sudah ada.
 
 URUTAN
-1. Supabase: buka SQL Editor, jalankan  supabase/migration-v10.sql  (sekali saja).
+1. Supabase: buka SQL Editor, jalankan  supabase/migration-v11.sql  (sekali saja).
 2. Salin semua file di bawah ke proyek (timpa):
 
-   app/page.js                     tiket peserta: polling 25 detik + banner hadiah di atas tiket
-   app/theme.css                   gaya mode Hadiah, banner hadiah, layar undian 3 kolom, warna pemenang/tidak hadir
-   app/staff/page.js               halaman panitia: mode HADIAH, popup tidak menutup sendiri
-   app/stage/page.js               undian: perbaikan hadiah salah nama dan undian ganda + daftar peserta di kiri roda + warna hijau/merah + dropdown hadiah berpencarian + daftar pemenang bisa digulir
-   app/api/auth/route.js           perbaikan mask() nama dengan spasi ganda
-   app/api/staff/route.js          aksi serah hadiah
-   app/api/ticket/route.js         data hadiah dan status diambil
-   app/api/admin/route.js          daftar pemenang membawa status diambil + aksi 'employee' (data satu peserta) + aksi 'stagePeserta' (daftar peserta undian)
-   app/pwfield.js                  BARU: kolom password dengan ikon mata (dipakai login, tiket, panitia)
-   app/login/page.js               ikon mata di login panitia
-   app/admin/ui.js                 menu cepat (Layar undian, Halaman scan, Keluar akun) di baris judul pojok kanan atas
-   app/admin/hadiah/page.js        tombol "Buka layar undian" ganda dihapus
-   app/admin/shell.js              tombol-tombol itu dihapus dari dasar sidebar
-   app/admin/panitia/page.js       ikon mata di kolom password panitia
-   app/admin/peserta/page.js       perbaikan jendela Reset/Kupon yang menampilkan data lama
-   app/admin/pemenang/page.js      kolom status Belum diambil / Diambil
+   supabase/migration-v11.sql      BARU: tabel kamar dan kolom kamar peserta
+   lib/rooms.js                    BARU: status fitur kamar, validasi kamar, data kamar untuk tiket
+   app/admin/kamar/page.js         BARU: halaman admin Kamar (daftar kamar, atur penghuni, import/ekspor Excel, tombol aktifkan)
+   app/api/admin/route.js          aksi kamar: rooms, setRoomEnabled, addRoom, updateRoom, deleteRoom, roomCandidates, assignRoom, unassignRoom, importRooms (+ catatan History)
+   app/api/ticket/route.js         tiket membawa data kamar dan teman sekamar (hanya jika fitur diaktifkan)
+   app/page.js                     kartu "Kamar kamu" di tiket peserta + notifikasi saat pembagian kamar masuk
+   app/admin/shell.js              menu Kamar di sidebar admin (sebelum Survey)
+   app/admin/history/page.js       filter kategori Kamar
+   app/theme.css                   gaya kartu kamar, daftar penghuni, label Kamar di History
+   lib/excel.js                    template, baca, dan ekspor Excel pembagian kamar
+   README.md                       catatan fitur kamar
 
 3. Hentikan "npm run dev", hapus folder .next, lalu jalankan "npm run dev" lagi.
 4. Untuk Vercel: commit dan push, lalu tunggu deploy selesai.
+
+CARA PAKAI
+- Login sebagai admin, buka menu Kamar.
+- Tambah kamar satu per satu (Tambah kamar), atau Import Excel (kolom NIK, Nomor Kamar, Nama Kamar).
+- Klik Atur penghuni di tiap kamar untuk memasukkan atau mengeluarkan peserta.
+- Kalau acara menginap, klik Aktifkan. Peserta langsung melihat kartu Kamar di tiket (diperbarui otomatis tiap +-25 detik).
+- Acara tanpa menginap: biarkan Nonaktif, tiket peserta tidak berubah.

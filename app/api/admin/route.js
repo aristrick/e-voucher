@@ -4,6 +4,7 @@ import { hash } from '@/lib/auth';
 import { getSettings, DEFAULTS } from '@/lib/settings';
 import { actorOf, logAct } from '@/lib/log';
 import { SURVEY_MSG, surveyOpen, cleanQuestion } from '@/lib/survey';
+import { ROOM_MSG, roomEnabledNow, cleanRoom } from '@/lib/rooms';
 export const dynamic = 'force-dynamic';
 
 const must = (r) => {
@@ -16,6 +17,8 @@ const must = (r) => {
 };
 // Sama seperti must, tetapi tabel survey yang belum dibuat menampilkan petunjuk migration-v9.sql
 const sv = (r) => { if (/does not exist|schema cache/i.test(r.error?.message || '')) throw new Error(SURVEY_MSG); return must(r); };
+// Sama seperti must, tetapi tabel kamar yang belum dibuat menampilkan petunjuk migration-v11.sql
+const rm = (r) => { if (/does not exist|schema cache/i.test(r.error?.message || '')) throw new Error(ROOM_MSG); return must(r); };
 // Cek sekali apakah migration-v2.sql sudah dijalankan (query HEAD tidak membawa pesan error, jadi dicek lewat SELECT biasa)
 let ready = false;
 const probe = async () => {
@@ -286,6 +289,112 @@ const H = {
     };
   },
 
+  // ---------- kamar ----------
+  // daftar kamar beserta penghuninya, status fitur (aktif atau tidak), dan jumlah peserta yang sudah dapat kamar
+  async rooms() {
+    const list = rm(await db.from('rooms').select('id,nomor,nama,kapasitas,catatan,urutan').order('urutan').order('id')).data;
+    const people = [];
+    for (let i = 0; ; i += 1000) {
+      const r = rm(await db.from('employees').select('id,nik,nama,divisi,cabang,room_id').not('room_id', 'is', null).order('nama').range(i, i + 999)).data;
+      people.push(...r); if (r.length < 1000) break;
+    }
+    const by = {}; people.forEach((p) => { (by[p.room_id] ||= []).push({ id: p.id, nik: p.nik, nama: p.nama, divisi: p.divisi, cabang: p.cabang }); });
+    // dibaca langsung (tanpa cache) supaya status tombol selalu sama dengan database
+    const [en, total] = await Promise.all([db.from('settings').select('value').eq('key', 'room_enabled').maybeSingle(), n(head('employees'))]);
+    return { enabled: en.data?.value === '1', total, assigned: people.length, rooms: list.map((r) => ({ ...r, penghuni: by[r.id] || [] })) };
+  },
+  async setRoomEnabled(b) { must(await db.from('settings').upsert({ key: 'room_enabled', value: b.open ? '1' : '0' }, { onConflict: 'key' })); roomEnabledNow(!!b.open); return {}; },
+  async addRoom(b) {
+    const q = cleanRoom(b);
+    const last = rm(await db.from('rooms').select('urutan').order('urutan', { ascending: false }).limit(1)).data[0];
+    const r = await db.from('rooms').insert({ ...q, urutan: (last?.urutan || 0) + 1 });
+    if (r.error?.code === '23505') throw new Error(`Nomor kamar ${q.nomor} sudah dipakai`);
+    rm(r); return {};
+  },
+  async updateRoom(b) {
+    const q = cleanRoom(b), id = Number(b.id);
+    if (q.kapasitas) {
+      const c = await n(head('employees').eq('room_id', id));
+      if (c > q.kapasitas) throw new Error(`Kamar ini sudah dihuni ${c} orang, kapasitas tidak boleh kurang dari itu`);
+    }
+    const r = await db.from('rooms').update(q).eq('id', id).select('id');
+    if (r.error?.code === '23505') throw new Error(`Nomor kamar ${q.nomor} sudah dipakai`);
+    if (!rm(r).data.length) throw new Error('Kamar tidak ditemukan');
+    return {};
+  },
+  // penghuni kamar yang dihapus otomatis kembali "belum dapat kamar"
+  async deleteRoom(b) { rm(await db.from('rooms').delete().eq('id', Number(b.id))); return {}; },
+  // cari peserta untuk dimasukkan ke kamar (b.belum = hanya yang belum dapat kamar); peserta yang sudah ada di kamar ini disembunyikan
+  async roomCandidates(b) {
+    let q = db.from('employees').select('id,nik,nama,divisi,cabang,room_id');
+    const s = like(b.q);
+    if (s) q = q.or(`nama.ilike.%${s}%,nik.ilike.%${s}%,cabang.ilike.%${s}%,divisi.ilike.%${s}%`);
+    if (b.belum) q = q.is('room_id', null);
+    const r = rm(await q.order('nama').order('nik').limit(60)).data;
+    const rid = Number(b.room_id);
+    return { rows: r.filter((e) => e.room_id !== rid).slice(0, 40) };
+  },
+  async assignRoom(b) {
+    const rid = Number(b.room_id);
+    const ids = [...new Set((Array.isArray(b.employee_ids) ? b.employee_ids : []).map(String))].slice(0, 200);
+    if (!ids.length) throw new Error('Pilih peserta dulu');
+    const room = rm(await db.from('rooms').select('id,nomor,kapasitas').eq('id', rid).maybeSingle()).data;
+    if (!room) throw new Error('Kamar tidak ditemukan');
+    if (room.kapasitas) {
+      const now = await n(head('employees').eq('room_id', rid));
+      const already = must(await db.from('employees').select('id').eq('room_id', rid).in('id', ids)).data.length;
+      if (now + (ids.length - already) > room.kapasitas) throw new Error(`Kamar ${room.nomor} penuh (kapasitas ${room.kapasitas}, terisi ${now}). Naikkan kapasitas lewat tombol Ubah bila perlu.`);
+    }
+    const r = must(await db.from('employees').update({ room_id: rid }).in('id', ids).select('id'));
+    return { assigned: r.data.length };
+  },
+  async unassignRoom(b) {
+    const ids = [...new Set((Array.isArray(b.employee_ids) ? b.employee_ids : []).map(String))].slice(0, 200);
+    if (!ids.length) throw new Error('Pilih peserta dulu');
+    const r = rm(await db.from('employees').update({ room_id: null }).in('id', ids).select('id'));
+    return { removed: r.data.length };
+  },
+  // import pembagian kamar dari Excel: kolom NIK, Nomor Kamar, Nama Kamar. Kamar yang belum ada dibuat otomatis,
+  // peserta yang sudah punya kamar dipindahkan, kapasitas kamar dihormati.
+  async importRooms(b) {
+    const list = Array.isArray(b.rows) ? b.rows.slice(0, 5000) : [];
+    const rows = []; let skipped = 0;
+    for (const r of list) {
+      const nik = clean(r.nik), nomor = clean(r.nomor).slice(0, 20);
+      if (!nik || !nomor) { skipped++; continue; }
+      rows.push({ nik, nomor, nama: clean(r.nama).slice(0, 60) || null });
+    }
+    const plan = new Map(); rows.forEach((r) => plan.set(r.nik, r));   // NIK ganda: baris terakhir yang dipakai
+    const rooms = new Map(rm(await db.from('rooms').select('id,nomor,nama,kapasitas,urutan')).data.map((r) => [r.nomor.toLowerCase(), r]));
+    const missing = new Map();
+    plan.forEach((r) => { const k = r.nomor.toLowerCase(); if (!rooms.has(k) && !missing.has(k)) missing.set(k, { nomor: r.nomor, nama: r.nama }); });
+    let created = 0;
+    if (missing.size) {
+      const last = Math.max(0, ...[...rooms.values()].map((r) => r.urutan || 0));
+      const ins = rm(await db.from('rooms').insert([...missing.values()].map((m, i) => ({ ...m, urutan: last + i + 1 }))).select('id,nomor,nama,kapasitas'));
+      ins.data.forEach((r) => rooms.set(r.nomor.toLowerCase(), r)); created = ins.data.length;
+    }
+    const emps = new Map(), niks = [...plan.keys()];
+    for (let i = 0; i < niks.length; i += 100) must(await db.from('employees').select('id,nik,room_id').in('nik', niks.slice(i, i + 100))).data.forEach((e) => emps.set(e.nik, e));
+    const occ = {};
+    for (let i = 0; ; i += 1000) {
+      const r = must(await db.from('employees').select('room_id').not('room_id', 'is', null).range(i, i + 999)).data;
+      r.forEach((x) => { occ[x.room_id] = (occ[x.room_id] || 0) + 1; }); if (r.length < 1000) break;
+    }
+    let assigned = 0, notFound = 0, full = 0; const byRoom = {};
+    for (const r of plan.values()) {
+      const e = emps.get(r.nik); if (!e) { notFound++; continue; }
+      const room = rooms.get(r.nomor.toLowerCase());
+      if (e.room_id === room.id) { assigned++; continue; }
+      if (room.kapasitas && (occ[room.id] || 0) >= room.kapasitas) { full++; continue; }
+      if (e.room_id) occ[e.room_id] = Math.max(0, (occ[e.room_id] || 0) - 1);
+      occ[room.id] = (occ[room.id] || 0) + 1;
+      (byRoom[room.id] ||= []).push(e.id); assigned++;
+    }
+    for (const [rid, ids] of Object.entries(byRoom)) for (let i = 0; i < ids.length; i += 100) must(await db.from('employees').update({ room_id: Number(rid) }).in('id', ids.slice(i, i + 100)));
+    return { assigned, created, notFound, full, skipped, duplicates: rows.length - plan.size };
+  },
+
   // ---------- survey ----------
   async survey() {
     const questions = sv(await db.from('survey_questions').select('id,tipe,teks,wajib,opsi,lainnya,label_min,label_maks').order('urutan').order('id')).data;
@@ -368,6 +477,13 @@ const LOGS = {
   deletePrize: ['hadiah', (b, r, c) => `Menghapus hadiah ${c.prize?.nama || ''}`],
   draw: ['undian', (b, r, c) => `Undian ${c.prize?.nama || 'hadiah'}: pemenang ${r.winner?.nama}`],
   forfeit: ['undian', (b, r, c) => `${c.draw?.employees?.nama || 'Pemenang'} ditandai tidak hadir (${c.draw?.prizes?.nama || 'hadiah'}), stok kembali`],
+  setRoomEnabled: ['kamar', (b) => `${b.open ? 'Mengaktifkan' : 'Menonaktifkan'} fitur pembagian kamar`],
+  addRoom: ['kamar', (b) => `Menambah kamar ${clean(b.nomor)}` + (clean(b.nama) ? ` (${clean(b.nama).slice(0, 60)})` : '')],
+  updateRoom: ['kamar', (b) => `Mengubah kamar ${clean(b.nomor)}`],
+  deleteRoom: ['kamar', (b, r, c) => `Menghapus kamar ${c.room?.nomor || ''}`],
+  assignRoom: ['kamar', (b, r, c) => (r.assigned === 1 && b.nama_peserta ? `Menempatkan ${String(b.nama_peserta).slice(0, 60)} di kamar ${c.room?.nomor || ''}` : `Menempatkan ${r.assigned} peserta di kamar ${c.room?.nomor || ''}`)],
+  unassignRoom: ['kamar', (b, r) => (r.removed === 1 && b.nama_peserta ? `Mengeluarkan ${String(b.nama_peserta).slice(0, 60)} dari kamar ${String(b.nomor_kamar || '').slice(0, 20)}` : `Mengeluarkan ${r.removed} peserta dari kamar`)],
+  importRooms: ['kamar', (b, r) => `Import pembagian kamar: ${r.assigned} peserta` + (r.created ? `, ${r.created} kamar baru` : '') + (r.notFound ? `, ${r.notFound} NIK tidak ditemukan` : '') + (r.full ? `, ${r.full} gagal (kamar penuh)` : '')],
   saveSettings: ['pengaturan', () => 'Menyimpan pengaturan acara'],
   setSurveyOpen: ['survey', (b) => `${b.open ? 'Membuka' : 'Menutup'} survey acara`],
   addSurveyQuestion: ['survey', (b) => `Menambah pertanyaan survey: ${clean(b.teks).slice(0, 80)}`],
@@ -384,6 +500,7 @@ const context = async (b) => {
     if (b.action === 'draw' || b.action === 'deletePrize') t.push(db.from('prizes').select('nama').eq('id', Number(b.prize_id || b.id)).maybeSingle().then((r) => { c.prize = r.data; }));
     if (b.action === 'forfeit') t.push(db.from('draws').select('prizes(nama),employees(nama)').eq('id', b.draw_id).maybeSingle().then((r) => { c.draw = r.data; }));
     if (b.action === 'renameCoupon' || b.action === 'deleteCoupon') t.push(db.from('coupon_types').select('nama').eq('id', b.id).maybeSingle().then((r) => { c.coupon = r.data; }));
+    if (b.action === 'deleteRoom' || b.action === 'assignRoom') t.push(db.from('rooms').select('nomor,nama').eq('id', Number(b.id ?? b.room_id)).maybeSingle().then((r) => { c.room = r.data; }));
     if (/Staff$/.test(b.action)) t.push(db.from('staff').select('username').eq('id', b.id).maybeSingle().then((r) => { c.staff = r.data; }));
     await Promise.all(t);
   } catch {}

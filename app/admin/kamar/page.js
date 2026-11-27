@@ -19,6 +19,7 @@ export default function Kamar() {
       { title: on ? 'Aktifkan pembagian kamar?' : 'Nonaktifkan pembagian kamar?', okText: on ? 'Ya, aktifkan' : 'Ya, nonaktifkan', danger: false });
     if (ok) run({ action: 'setRoomEnabled', open: on }, on ? 'Pembagian kamar diaktifkan' : 'Pembagian kamar dinonaktifkan');
   };
+  const retKey = async (r) => (await ask(`Konfirmasi kunci kamar ${r.nomor} sudah dikembalikan ke panitia?`, { title: 'Kunci dikembalikan?', okText: 'Ya, sudah kembali', danger: false })) && run({ action: 'returnKey', room_id: r.id, nomor_kamar: r.nomor }, `Kunci kamar ${r.nomor} tercatat dikembalikan`);
   const fset = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const save = async () => {
     const r = await run({ action: form.id ? 'updateRoom' : 'addRoom', ...form }, form.id ? 'Kamar diperbarui' : 'Kamar ditambahkan');
@@ -74,6 +75,7 @@ export default function Kamar() {
           <div className="card ok"><div className="stat">{d.assigned}</div>Peserta sudah dapat kamar</div>
           <div className="card yellow"><div className="stat">{Math.max(d.total - d.assigned, 0)}</div>Peserta belum dapat kamar</div>
           <div className="card blue"><div className="stat">{d.rooms.filter((r) => r.key_taken_at).length}<span className="mute"> / {d.rooms.filter((r) => r.penghuni.length).length}</span></div>Kunci sudah diambil</div>
+          <div className="card ok"><div className="stat">{d.rooms.filter((r) => r.key_returned_at).length}<span className="mute"> / {d.rooms.filter((r) => r.key_taken_at).length}</span></div>Kunci sudah dikembalikan</div>
         </div>
 
         {d.rooms.length > 0 && <div className="card"><div className="toolbar"><input aria-label="Cari kamar atau penghuni" placeholder="Cari nomor kamar, nama kamar, atau nama penghuni" value={q} onChange={(e) => setQ(e.target.value)} /></div></div>}
@@ -90,10 +92,12 @@ export default function Kamar() {
                   <td className="nw" data-label="Terisi"><span className={'chip' + (full ? ' warn' : n ? '' : ' off')}>{n}{r.kapasitas ? ' / ' + r.kapasitas : ''}</span></td>
                   <td data-label="Penghuni">{n === 0 ? <span className="dim">Belum ada penghuni</span> : <span className="kps">{r.penghuni.map((p) => p.id === r.key_holder ? <span className="kp key" key={p.id} title="Pembawa kunci"><KeyIcon size={12} />{p.nama}</span> : <span className="kp" key={p.id}>{p.nama}</span>)}</span>}</td>
                   <td className="nw" data-label="Kunci">{!r.key_holder ? (n === 0 ? <span className="dim">-</span> : <span className="chip warn">Belum diambil</span>) : <span>
-                    <span className="chip">Sudah diambil</span>
+                    <span className={'chip' + (r.key_returned_at ? ' off' : '')}>{r.key_returned_at ? 'Dikembalikan' : 'Sudah diambil'}</span>
                     <span className="sub" style={{ marginTop: 3 }}>{(r.penghuni.find((p) => p.id === r.key_holder) || {}).nama}</span>
-                    {r.key_taken_at && <span className="sub">{fmtDateTime(r.key_taken_at)}</span>}</span>}</td>
+                    {r.key_taken_at && <span className="sub">Diambil {fmtDateTime(r.key_taken_at)}</span>}
+                    {r.key_returned_at && <span className="sub">Kembali {fmtDateTime(r.key_returned_at)}{r.key_returned_name ? ' · ' + r.key_returned_name : ''}</span>}</span>}</td>
                   <td className="act"><span className="acts">
+                    {r.key_taken_at && !r.key_returned_at && <button className="btn sm g" onClick={() => retKey(r)}>Kunci kembali</button>}
                     <button className="btn sm b" onClick={() => setPid(r.id)}>Atur penghuni</button>
                     <button className="btn sm y" onClick={() => setForm({ id: r.id, nomor: r.nomor, nama: r.nama || '', kapasitas: r.kapasitas || '', catatan: r.catatan || '' })}>Ubah</button>
                     <button className="btn sm r" onClick={() => del(r)}>Hapus</button>
@@ -156,6 +160,8 @@ function Penghuni({ id, d, run, onClose }) {
     run({ action: 'setKeyHolder', room_id: id, employee_id: p.id, nama_peserta: p.nama, nomor_kamar: room.nomor }, `${p.nama} menjadi pembawa kunci kamar ${room.nomor}`);
   };
   const resetKey = async () => (await ask(`Kembalikan kunci kamar ${room.nomor} menjadi belum diambil? Pembawa kunci dikosongkan, penghuni mana pun bisa discan pertama lagi oleh panitia.`, { title: 'Reset kunci?', okText: 'Ya, reset', danger: true })) && run({ action: 'resetKey', room_id: id, nomor_kamar: room.nomor }, `Status kunci kamar ${room.nomor} direset`);
+  const retKey = async () => (await ask(`Konfirmasi kunci kamar ${room.nomor} sudah dikembalikan ke panitia?`, { title: 'Kunci dikembalikan?', okText: 'Ya, sudah kembali', danger: false })) && run({ action: 'returnKey', room_id: id, nomor_kamar: room.nomor }, `Kunci kamar ${room.nomor} tercatat dikembalikan`);
+  const undoRet = async () => (await ask(`Batalkan catatan pengembalian kunci kamar ${room.nomor}? Status kembali menjadi sudah diambil, belum dikembalikan.`, { title: 'Batalkan pengembalian?', okText: 'Ya, batalkan', danger: true })) && run({ action: 'undoReturnKey', room_id: id, nomor_kamar: room.nomor }, `Pengembalian kunci kamar ${room.nomor} dibatalkan`);
   const out = (p) => run({ action: 'unassignRoom', employee_ids: [p.id], nama_peserta: p.nama, nomor_kamar: room.nomor }, `${p.nama} dikeluarkan dari kamar ${room.nomor}`);
   return (
     <Modal title={'Kamar ' + room.nomor + (room.nama ? ' · ' + room.nama : '')} onClose={onClose}>
@@ -166,7 +172,7 @@ function Penghuni({ id, d, run, onClose }) {
           return (
             <div className={'row mate-row' + (kh ? ' key' : '')} key={p.id}>
               <span><b>{kh && <KeyIcon size={14} label="Pembawa kunci" />} {p.nama}</b><span className="sub">{[p.nik, unit(p)].filter(Boolean).join(' · ')}</span>
-                {kh && <span className="chip" style={{ marginTop: 4, background: 'var(--yellow)' }}>Pembawa kunci{room.key_taken_at ? ' · diambil ' + fmtDateTime(room.key_taken_at) : ''}</span>}</span>
+                {kh && <span className="chip" style={{ marginTop: 4, background: 'var(--yellow)' }}>Pembawa kunci{room.key_returned_at ? ' · dikembalikan ' + fmtDateTime(room.key_returned_at) : room.key_taken_at ? ' · diambil ' + fmtDateTime(room.key_taken_at) : ''}</span>}</span>
               <span className="gap" style={{ justifyContent: 'flex-end' }}>
                 {kh && <button className="btn sm w" onClick={resetKey}>Reset kunci</button>}
                 {!kh && <button className="btn sm y" onClick={() => setHolder(p)}>{room.key_holder ? 'Ganti jadi pembawa kunci' : 'Jadikan pembawa kunci'}</button>}
@@ -174,6 +180,19 @@ function Penghuni({ id, d, run, onClose }) {
               </span>
             </div>);
         })}
+      {room.key_taken_at && (
+        <div className="key-box" style={{ marginTop: 10, flexWrap: 'wrap' }}>
+          <KeyIcon size={20} />
+          <div style={{ flex: 1, minWidth: 160 }}>
+            <b>{room.key_returned_at ? 'Kunci sudah dikembalikan' : 'Kunci belum dikembalikan'}</b>
+            <div className="mu">{room.key_returned_at
+              ? fmtDateTime(room.key_returned_at) + (room.key_returned_name ? ' · oleh ' + room.key_returned_name : '') + (room.key_returned_by ? ' · ' + room.key_returned_by : '')
+              : 'Diambil ' + fmtDateTime(room.key_taken_at) + '. Panitia bisa menerimanya lewat scan mode KUNCI > Kembalikan, atau konfirmasi manual di sini.'}</div>
+          </div>
+          {room.key_returned_at
+            ? <button className="btn sm w" onClick={undoRet}>Batalkan pengembalian</button>
+            : <button className="btn sm g" onClick={retKey}>Konfirmasi kunci dikembalikan</button>}
+        </div>)}
       {n > 0 && !room.key_holder && <div className="mute">Kunci belum diambil. Pembawa kunci otomatis penghuni yang pertama discan panitia di mode KUNCI, atau pilih manual di sini.</div>}
       <div className="cut" />
       <h3 style={{ margin: '0 0 6px' }}>Tambah penghuni</h3>

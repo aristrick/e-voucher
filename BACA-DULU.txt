@@ -1,11 +1,11 @@
-CARA PASANG (v15: logo Gotik di halaman depan + pembawa kunci otomatis, wajib check-in)
+CARA PASANG (v16: pengembalian kunci, logo Gotik di halaman depan + pembawa kunci otomatis, wajib check-in)
 ===========================================================
 Folder di zip ini meniru susunan proyekmu (e-voucher). Cukup salin isinya ke folder proyek
 dan pilih "Timpa / Replace" untuk file yang sudah ada.
 
 URUTAN
 1. Supabase: buka SQL Editor, jalankan migration-v11.sql dan migration-v12.sql (kalau belum pernah),
-   lalu jalankan  supabase/migration-v13.sql  (sekali saja).
+   lalu migration-v13.sql (kalau belum pernah), lalu  supabase/migration-v14.sql  (BARU, sekali saja: kolom pengembalian kunci).
    v13 mengosongkan pemegang kunci hasil penunjukan otomatis v12 yang belum pernah discan.
    Kamar yang kuncinya sudah benar-benar diambil tidak diubah.
 2. Salin semua file zip ke proyek (timpa). Yang berubah di v13:
@@ -14,7 +14,15 @@ URUTAN
    app/api/auth/route.js          nama saat cek NIK tampil lengkap atau disensor sesuai saklar admin (default: lengkap)
    app/admin/cek-nik/page.js      BARU: halaman admin dengan tombol Tampilkan nama lengkap / Sensor nama
    app/admin/shell.js             menu Cek NIK
-   supabase/migration-v13.sql     BARU (lewati kalau sudah pernah dijalankan)
+   supabase/migration-v14.sql     BARU: kolom pengembalian kunci (key_returned_at, key_returned_by, key_returned_name)
+   lib/rooms.js                   data pengembalian ikut ke tiket
+   app/api/staff/route.js         aksi keyback (terima kunci kembali), kunci yang sudah dikembalikan tidak bisa diambil lagi
+   app/api/admin/route.js         aksi returnKey dan undoReturnKey
+   app/staff/page.js              mode KUNCI punya pilihan Ambil kunci / Kembalikan kunci
+   app/admin/kamar/page.js        status Dikembalikan, tombol Kunci kembali, Konfirmasi kunci dikembalikan, Batalkan pengembalian
+   app/page.js                    tiket menampilkan "Kunci sudah dikembalikan"
+   lib/excel.js                   ekspor kamar memuat waktu pengembalian
+   supabase/migration-v13.sql     (lewati kalau sudah pernah dijalankan)
    lib/rooms.js                   tidak lagi menunjuk pemegang kunci otomatis
    app/api/staff/route.js         scan KUNCI wajib sudah check-in; scan pertama di kamar = pembawa kunci; penghuni lain ditolak
    app/api/admin/route.js         ganti pembawa kunci manual (langsung tercatat sudah diambil), reset mengosongkan pembawa kunci
@@ -32,3 +40,11 @@ CARA PAKAI KUNCI KAMAR
 - Salah scan atau pembawa kunci berganti: Admin > Kamar > Atur penghuni > "Ganti jadi pembawa kunci" pada penghuni yang benar.
 - Kunci dikembalikan: Admin > Kamar > Atur penghuni > "Reset kunci", lalu siapa pun bisa discan pertama lagi.
 - Kalau pembawa kunci dikeluarkan atau pindah kamar, status kunci kamar lama otomatis direset.
+
+PENGEMBALIAN KUNCI
+- Halaman scan panitia: pilih mode KUNCI, lalu pilih "Kembalikan kunci". Scan QR (atau ketik NIK) penghuni kamar yang mengembalikan.
+  Penghuni mana pun di kamar itu boleh mengembalikan, tidak harus pembawa kunci.
+- Kunci harus sudah diambil dulu. Dicatat sekali saja; scan kedua ditolak dengan keterangan kapan sudah dikembalikan.
+- Kunci yang sudah dikembalikan tidak bisa diambil lagi lewat scan. Kalau salah catat: Admin > Kamar > Atur penghuni > Batalkan pengembalian.
+- Admin bisa mengonfirmasi manual: tombol "Kunci kembali" di daftar kamar, atau "Konfirmasi kunci dikembalikan" di Atur penghuni.
+- "Reset kunci" mengosongkan semuanya (pembawa kunci, waktu ambil, waktu kembali).

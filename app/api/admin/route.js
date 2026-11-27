@@ -4,7 +4,7 @@ import { hash } from '@/lib/auth';
 import { getSettings, DEFAULTS } from '@/lib/settings';
 import { actorOf, logAct } from '@/lib/log';
 import { SURVEY_MSG, surveyOpen, cleanQuestion } from '@/lib/survey';
-import { ROOM_MSG, KEY_MSG, roomEnabledNow, cleanRoom, clearHolders } from '@/lib/rooms';
+import { ROOM_MSG, KEY_MSG, RET_MSG, roomEnabledNow, cleanRoom, clearHolders } from '@/lib/rooms';
 export const dynamic = 'force-dynamic';
 
 const must = (r) => {
@@ -18,7 +18,7 @@ const must = (r) => {
 // Sama seperti must, tetapi tabel survey yang belum dibuat menampilkan petunjuk migration-v9.sql
 const sv = (r) => { if (/does not exist|schema cache/i.test(r.error?.message || '')) throw new Error(SURVEY_MSG); return must(r); };
 // Sama seperti must, tetapi tabel kamar yang belum dibuat menampilkan petunjuk migration-v11.sql
-const rm = (r) => { const m = r.error?.message || ''; if (/key_holder|key_taken/i.test(m)) throw new Error(KEY_MSG); if (/does not exist|schema cache/i.test(m)) throw new Error(ROOM_MSG); return must(r); };
+const rm = (r) => { const m = r.error?.message || ''; if (/key_returned/i.test(m)) throw new Error(RET_MSG); if (/key_holder|key_taken/i.test(m)) throw new Error(KEY_MSG); if (/does not exist|schema cache/i.test(m)) throw new Error(ROOM_MSG); return must(r); };
 // Cek sekali apakah migration-v2.sql sudah dijalankan (query HEAD tidak membawa pesan error, jadi dicek lewat SELECT biasa)
 let ready = false;
 const probe = async () => {
@@ -292,7 +292,7 @@ const H = {
   // ---------- kamar ----------
   // daftar kamar beserta penghuninya, status fitur (aktif atau tidak), dan jumlah peserta yang sudah dapat kamar
   async rooms() {
-    const list = rm(await db.from('rooms').select('id,nomor,nama,kapasitas,catatan,urutan,key_holder,key_taken_at,key_taken_by').order('urutan').order('id')).data;
+    const list = rm(await db.from('rooms').select('id,nomor,nama,kapasitas,catatan,urutan,key_holder,key_taken_at,key_taken_by,key_returned_at,key_returned_by,key_returned_name').order('urutan').order('id')).data;
     const people = [];
     for (let i = 0; ; i += 1000) {
       const r = rm(await db.from('employees').select('id,nik,nama,divisi,cabang,room_id').not('room_id', 'is', null).order('nama').range(i, i + 999)).data;
@@ -362,13 +362,32 @@ const H = {
     if (!eid) throw new Error('Pilih peserta dulu');
     const e = must(await db.from('employees').select('id,room_id').eq('id', eid).maybeSingle()).data;
     if (!e || e.room_id !== rid) throw new Error('Peserta ini bukan penghuni kamar tersebut');
-    const r = rm(await db.from('rooms').update({ key_holder: eid, key_taken_at: new Date().toISOString(), key_taken_by: 'admin' }).eq('id', rid).select('id'));
+    const r = rm(await db.from('rooms').update({ key_holder: eid, key_taken_at: new Date().toISOString(), key_taken_by: 'admin', key_returned_at: null, key_returned_by: null, key_returned_name: null }).eq('id', rid).select('id'));
     if (!r.data.length) throw new Error('Kamar tidak ditemukan');
     return {};
   },
   // kunci dikembalikan atau salah serah: pemegang kunci dikosongkan, jadi penghuni mana pun bisa discan pertama lagi
   async resetKey(b) {
-    const r = rm(await db.from('rooms').update({ key_holder: null, key_taken_at: null, key_taken_by: null }).eq('id', Number(b.room_id)).select('id'));
+    const r = rm(await db.from('rooms').update({ key_holder: null, key_taken_at: null, key_taken_by: null, key_returned_at: null, key_returned_by: null, key_returned_name: null }).eq('id', Number(b.room_id)).select('id'));
+    if (!r.data.length) throw new Error('Kamar tidak ditemukan');
+    return {};
+  },
+  // konfirmasi manual oleh admin: kunci sudah kembali ke panitia. Hanya bisa kalau kunci sudah diambil dan belum tercatat kembali.
+  async returnKey(b) {
+    const rid = Number(b.room_id);
+    const room = rm(await db.from('rooms').select('id,nomor,key_holder,key_taken_at,key_returned_at').eq('id', rid).maybeSingle()).data;
+    if (!room) throw new Error('Kamar tidak ditemukan');
+    if (!room.key_taken_at) throw new Error(`Kunci kamar ${room.nomor} belum diambil, belum ada yang perlu dikembalikan`);
+    if (room.key_returned_at) throw new Error(`Kunci kamar ${room.nomor} sudah tercatat dikembalikan`);
+    const h = room.key_holder ? await db.from('employees').select('nama').eq('id', room.key_holder).maybeSingle() : { data: null };
+    const r = rm(await db.from('rooms').update({ key_returned_at: new Date().toISOString(), key_returned_by: 'admin', key_returned_name: h.data?.nama || null })
+      .eq('id', rid).not('key_taken_at', 'is', null).is('key_returned_at', null).select('id'));
+    if (!r.data.length) throw new Error(`Kunci kamar ${room.nomor} sudah tercatat dikembalikan`);
+    return {};
+  },
+  // salah catat: kunci kembali berstatus "sudah diambil, belum dikembalikan"
+  async undoReturnKey(b) {
+    const r = rm(await db.from('rooms').update({ key_returned_at: null, key_returned_by: null, key_returned_name: null }).eq('id', Number(b.room_id)).select('id'));
     if (!r.data.length) throw new Error('Kamar tidak ditemukan');
     return {};
   },
@@ -513,6 +532,8 @@ const LOGS = {
   unassignRoom: ['kamar', (b, r) => (r.removed === 1 && b.nama_peserta ? `Mengeluarkan ${String(b.nama_peserta).slice(0, 60)} dari kamar ${String(b.nomor_kamar || '').slice(0, 20)}` : `Mengeluarkan ${r.removed} peserta dari kamar`)],
   setKeyHolder: ['kamar', (b) => `Menetapkan ${String(b.nama_peserta || '').slice(0, 60)} sebagai pemegang kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)}`],
   resetKey: ['kamar', (b) => `Mereset kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)} (pemegang kunci dikosongkan, kunci kembali belum diambil)`],
+  returnKey: ['kamar', (b) => `Mengonfirmasi kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)} sudah dikembalikan (admin)`],
+  undoReturnKey: ['kamar', (b) => `Membatalkan catatan pengembalian kunci kamar ${String(b.nomor_kamar || '').slice(0, 20)}`],
   importRooms: ['kamar', (b, r) => `Import pembagian kamar: ${r.assigned} peserta` + (r.created ? `, ${r.created} kamar baru` : '') + (r.notFound ? `, ${r.notFound} NIK tidak ditemukan` : '') + (r.full ? `, ${r.full} gagal (kamar penuh)` : '')],
   saveSettings: ['pengaturan', () => 'Menyimpan pengaturan acara'],
   setNameVisible: ['pengaturan', (b) => `${b.show ? 'Menampilkan nama lengkap' : 'Menyensor nama'} peserta saat cek NIK`],
@@ -531,7 +552,7 @@ const context = async (b) => {
     if (b.action === 'draw' || b.action === 'deletePrize') t.push(db.from('prizes').select('nama').eq('id', Number(b.prize_id || b.id)).maybeSingle().then((r) => { c.prize = r.data; }));
     if (b.action === 'forfeit') t.push(db.from('draws').select('prizes(nama),employees(nama)').eq('id', b.draw_id).maybeSingle().then((r) => { c.draw = r.data; }));
     if (b.action === 'renameCoupon' || b.action === 'deleteCoupon') t.push(db.from('coupon_types').select('nama').eq('id', b.id).maybeSingle().then((r) => { c.coupon = r.data; }));
-    if (b.action === 'deleteRoom' || b.action === 'assignRoom') t.push(db.from('rooms').select('nomor,nama').eq('id', Number(b.id ?? b.room_id)).maybeSingle().then((r) => { c.room = r.data; }));
+    if (b.action === 'deleteRoom' || b.action === 'assignRoom' || b.action === 'returnKey' || b.action === 'undoReturnKey') t.push(db.from('rooms').select('nomor,nama').eq('id', Number(b.id ?? b.room_id)).maybeSingle().then((r) => { c.room = r.data; }));
     if (/Staff$/.test(b.action)) t.push(db.from('staff').select('username').eq('id', b.id).maybeSingle().then((r) => { c.staff = r.data; }));
     await Promise.all(t);
   } catch {}

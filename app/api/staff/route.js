@@ -6,6 +6,12 @@ export const dynamic = 'force-dynamic';
 
 // Dibuat secepat mungkin: scan berhasil hanya butuh 1 kali ke database (check-in) atau 2 kali (redeem).
 // Pencatatan riwayat berjalan SETELAH respons dikirim, jadi tidak menambah waktu tunggu panitia.
+// baris kamar untuk aksi kunci. old = true kalau migration-v14 (pengembalian kunci) belum dijalankan
+const roomRow = async (id) => {
+  const r = await db.from('rooms').select('id,nomor,nama,key_holder,key_taken_at,key_returned_at').eq('id', id).maybeSingle();
+  if (r.error && /key_returned/i.test(r.error.message)) { const o = await db.from('rooms').select('id,nomor,nama,key_holder,key_taken_at').eq('id', id).maybeSingle(); o.old = true; return o; }
+  return r;
+};
 async function handle(req, b) {
   const who0 = await role(req);
   if (!who0) return [json({ error: 'Belum login' }, 401)];
@@ -75,7 +81,7 @@ async function handle(req, b) {
       if (!e.checked_in_at) return R({ ok: false, aksi: 'key', ...who, msg: 'Belum check-in di pintu masuk' });
       if (!(await roomEnabled())) return R({ ok: false, aksi: 'key', ...who, msg: 'Fitur pembagian kamar belum diaktifkan admin' });
       if (!e.room_id) return R({ ok: false, aksi: 'key', ...who, msg: 'Peserta ini belum dibagi kamar' });
-      const rr = await db.from('rooms').select('id,nomor,nama,key_holder,key_taken_at').eq('id', e.room_id).maybeSingle();
+      const rr = await roomRow(e.room_id);
       if (rr.error) return R({ ok: false, aksi: 'key', ...who, msg: 'Database belum diperbarui. Jalankan supabase/migration-v12.sql di Supabase SQL Editor.' }, 500);
       const room = rr.data;
       if (!room) return R({ ok: false, aksi: 'key', ...who, msg: 'Kamar peserta tidak ditemukan' });
@@ -86,6 +92,7 @@ async function handle(req, b) {
         const h = room.key_holder ? await db.from('employees').select('nama').eq('id', room.key_holder).maybeSingle() : { data: null };
         return R({ ok: false, aksi: 'key', ...who, kamar, at, msg: `Kunci kamar ${room.nomor} sudah dibawa oleh ${h.data?.nama || 'penghuni lain'}` });
       };
+      if (room.key_returned_at) return R({ ok: false, aksi: 'key', ...who, kamar, at: room.key_returned_at, msg: `Kunci kamar ${room.nomor} sudah dikembalikan` });
       if (room.key_holder) return sudah(room.key_taken_at);
       const now = new Date().toISOString();
       const up = await db.from('rooms').update({ key_holder: e.id, key_taken_at: now, key_taken_by: String(booth || '').slice(0, 40) || null })
@@ -98,6 +105,35 @@ async function handle(req, b) {
         return sudah(again?.key_taken_at);
       }
       return R({ ok: true, aksi: 'key', ...who, kamar, at: now, msg: `Serahkan kunci kamar ${room.nomor}. ${e.nama} jadi pembawa kunci` });
+    }
+
+    if (action === 'keyback') {
+      // terima kunci kembali: penghuni mana pun di kamar itu boleh mengembalikan, tapi kunci harus sudah diambil dan hanya bisa dicatat kembali sekali.
+      // Penandaan memakai satu update bersyarat, jadi dua scan bersamaan tidak mencatat dua kali.
+      const pe = await db.from('employees').select('id,nama,nik,cabang,divisi,room_id').or(match).maybeSingle();
+      if (pe.error) return R({ ok: false, aksi: 'keyback', msg: pe.error.message }, 500);
+      const e = pe.data;
+      if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
+      const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '' };
+      if (!(await roomEnabled())) return R({ ok: false, aksi: 'keyback', ...who, msg: 'Fitur pembagian kamar belum diaktifkan admin' });
+      if (!e.room_id) return R({ ok: false, aksi: 'keyback', ...who, msg: 'Peserta ini belum dibagi kamar' });
+      const rr = await roomRow(e.room_id);
+      if (rr.error) return R({ ok: false, aksi: 'keyback', ...who, msg: 'Database belum diperbarui. Jalankan supabase/migration-v12.sql dan migration-v14.sql di Supabase SQL Editor.' }, 500);
+      if (rr.old) return R({ ok: false, aksi: 'keyback', ...who, msg: 'Database belum diperbarui. Jalankan supabase/migration-v14.sql di Supabase SQL Editor.' }, 500);
+      const room = rr.data;
+      if (!room) return R({ ok: false, aksi: 'keyback', ...who, msg: 'Kamar peserta tidak ditemukan' });
+      const kamar = room.nomor + (room.nama ? ' · ' + room.nama : '');
+      if (!room.key_taken_at) return R({ ok: false, aksi: 'keyback', ...who, kamar, msg: `Kunci kamar ${room.nomor} belum diambil, belum ada yang perlu dikembalikan` });
+      if (room.key_returned_at) return R({ ok: false, aksi: 'keyback', ...who, kamar, at: room.key_returned_at, msg: `Kunci kamar ${room.nomor} sudah dikembalikan sebelumnya` });
+      const now = new Date().toISOString();
+      const up = await db.from('rooms').update({ key_returned_at: now, key_returned_by: String(booth || '').slice(0, 40) || null, key_returned_name: e.nama })
+        .eq('id', room.id).not('key_taken_at', 'is', null).is('key_returned_at', null).select('id');
+      if (up.error) return R({ ok: false, aksi: 'keyback', ...who, kamar, msg: up.error.message }, 500);
+      if (!up.data?.length) {
+        const { data: again } = await db.from('rooms').select('key_returned_at').eq('id', room.id).maybeSingle();
+        return R({ ok: false, aksi: 'keyback', ...who, kamar, at: again?.key_returned_at, msg: `Kunci kamar ${room.nomor} sudah dikembalikan sebelumnya` });
+      }
+      return R({ ok: true, aksi: 'keyback', ...who, kamar, at: now, msg: `Kunci kamar ${room.nomor} diterima kembali` });
     }
 
     if (action !== 'redeem') return [json({ ok: false, msg: 'Aksi tidak dikenal' }, 400)];
@@ -133,15 +169,15 @@ async function handle(req, b) {
 export async function POST(req) {
   let b; try { b = await req.json(); } catch { return json({ ok: false, msg: 'Request tidak valid' }, 400); }
   const [res, d] = await handle(req, b);
-  if (d && (b.action === 'checkin' || b.action === 'redeem' || b.action === 'prize' || b.action === 'key')) {
+  if (d && (b.action === 'checkin' || b.action === 'redeem' || b.action === 'prize' || b.action === 'key' || b.action === 'keyback')) {
     const booth = String(b.booth || '').slice(0, 40);
     after(async () => {
-      const what = b.action === 'checkin' ? 'Check-in' : b.action === 'prize' ? 'Serah hadiah' : b.action === 'key' ? 'Serah kunci' + (d.kamar ? ' kamar ' + d.kamar : '') : 'Redeem' + (d.kupon ? ' ' + d.kupon : '');
+      const what = b.action === 'checkin' ? 'Check-in' : b.action === 'prize' ? 'Serah hadiah' : b.action === 'key' ? 'Serah kunci' + (d.kamar ? ' kamar ' + d.kamar : '') : b.action === 'keyback' ? 'Kunci kembali' + (d.kamar ? ' kamar ' + d.kamar : '') : 'Redeem' + (d.kupon ? ' ' + d.kupon : '');
       const hd = b.action === 'prize' && d.hadiah?.length ? ' ' + d.hadiah.join(', ') : '';
       const ringkas = d.ok
-        ? `${what}${hd} ke ${d.nama}` + (b.action !== 'checkin' && booth ? ` (booth ${booth})` : '')
+        ? (b.action === 'keyback' ? `${what} diterima dari ${d.nama}` : `${what}${hd} ke ${d.nama}`) + (b.action !== 'checkin' && booth ? ` (booth ${booth})` : '')
         : `${what} gagal${d.nama ? ' · ' + d.nama : ''}: ${d.msg || 'tidak diketahui'}`;
-      await logAct(await actorOf(req), { kategori: b.action === 'prize' ? 'hadiah' : b.action === 'key' ? 'kamar' : b.action, aksi: b.action, ringkas, ok: !!d.ok, detail: { nik: d.nik || null, kupon: d.kupon || null, hadiah: d.hadiah || null, booth: booth || null } });
+      await logAct(await actorOf(req), { kategori: b.action === 'prize' ? 'hadiah' : b.action === 'key' || b.action === 'keyback' ? 'kamar' : b.action, aksi: b.action, ringkas, ok: !!d.ok, detail: { nik: d.nik || null, kupon: d.kupon || null, hadiah: d.hadiah || null, booth: booth || null } });
     });
   }
   return res;

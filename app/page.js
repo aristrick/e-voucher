@@ -45,6 +45,7 @@ export default function Home() {
       if (baru.length) setFresh((f) => [...f, ...baru.map((c) => c.id)]);
       if (baru.length) say('Kupon ' + baru.map((c) => c.nama).join(', ') + ' berhasil ditukar');
       else if (prev.prizes && (r.prizes || []).some((p) => p.claimed_at && !prev.prizes.find((x) => x.id === p.id)?.claimed_at)) say('Hadiah kamu sudah diserahkan. Selamat menikmati!');
+      else if (r.kamar?.kunci?.dikembalikan_at && !prev.kamar?.kunci?.dikembalikan_at) say('Kunci kamar sudah dikembalikan. Terima kasih!');
       else if (r.kamar?.kunci?.diambil_at && !prev.kamar?.kunci?.diambil_at) say(r.kamar.kunci.saya ? 'Kunci kamar sudah diserahkan kepadamu' : 'Kunci kamar sudah diambil oleh ' + r.kamar.kunci.pemegang);
       else if (r.kamar?.dapat && !prev.kamar?.dapat) say('Pembagian kamar sudah tersedia: kamar ' + r.kamar.nomor + (r.kamar.nama ? ' (' + r.kamar.nama + ')' : ''));
       else if (r.hadir && !prev.hadir) say('Check-in berhasil. Selamat datang!');
@@ -190,8 +191,10 @@ export default function Home() {
                   <div className={'key-box' + (k.saya ? ' me' : '')} role="status">
                     <KeyIcon size={22} />
                     <div>
-                      <b>{k.saya ? 'Kamu pembawa kunci kamar ini' : 'Pembawa kunci: ' + k.pemegang}</b>
-                      <div className="mu">{(k.saya ? 'Kunci sudah kamu ambil' : 'Kunci sudah diambil atas nama ' + k.pemegang) + (k.diambil_at ? ' · ' + fmtFull(k.diambil_at) : '')}</div>
+                      <b>{k.dikembalikan_at ? 'Kunci sudah dikembalikan' : k.saya ? 'Kamu pembawa kunci kamar ini' : 'Pembawa kunci: ' + k.pemegang}</b>
+                      <div className="mu">{k.dikembalikan_at
+                        ? 'Terima kasih · ' + fmtFull(k.dikembalikan_at)
+                        : (k.saya ? 'Kunci sudah kamu ambil' : 'Kunci sudah diambil atas nama ' + k.pemegang) + (k.diambil_at ? ' · ' + fmtFull(k.diambil_at) : '') + '. Kembalikan kunci ke panitia saat selesai.'}</div>
                     </div>
                   </div>);
               })()}

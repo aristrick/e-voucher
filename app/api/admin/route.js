@@ -362,7 +362,7 @@ const H = {
     for (const r of list) {
       const nik = clean(r.nik), nomor = clean(r.nomor).slice(0, 20);
       if (!nik || !nomor) { skipped++; continue; }
-      rows.push({ nik, nomor, nama: clean(r.nama).slice(0, 60) || null });
+      rows.push({ nik, nomor, nama: clean(r.nama).slice(0, 60) || null, peserta: clean(r.peserta) });
     }
     const plan = new Map(); rows.forEach((r) => plan.set(r.nik, r));   // NIK ganda: baris terakhir yang dipakai
     const rooms = new Map(rm(await db.from('rooms').select('id,nomor,nama,kapasitas,urutan')).data.map((r) => [r.nomor.toLowerCase(), r]));
@@ -375,15 +375,17 @@ const H = {
       ins.data.forEach((r) => rooms.set(r.nomor.toLowerCase(), r)); created = ins.data.length;
     }
     const emps = new Map(), niks = [...plan.keys()];
-    for (let i = 0; i < niks.length; i += 100) must(await db.from('employees').select('id,nik,room_id').in('nik', niks.slice(i, i + 100))).data.forEach((e) => emps.set(e.nik, e));
+    for (let i = 0; i < niks.length; i += 100) must(await db.from('employees').select('id,nik,nama,room_id').in('nik', niks.slice(i, i + 100))).data.forEach((e) => emps.set(e.nik, e));
     const occ = {};
     for (let i = 0; ; i += 1000) {
       const r = must(await db.from('employees').select('room_id').not('room_id', 'is', null).range(i, i + 999)).data;
       r.forEach((x) => { occ[x.room_id] = (occ[x.room_id] || 0) + 1; }); if (r.length < 1000) break;
     }
-    let assigned = 0, notFound = 0, full = 0; const byRoom = {};
+    let assigned = 0, notFound = 0, full = 0, mismatch = 0; const byRoom = {};
     for (const r of plan.values()) {
       const e = emps.get(r.nik); if (!e) { notFound++; continue; }
+      // nama di Excel hanya pemeriksa silang: kalau beda dari data peserta tetap diproses, tapi dihitung sebagai peringatan
+      if (r.peserta && r.peserta.toLowerCase().replace(/\s+/g, ' ') !== String(e.nama).toLowerCase().replace(/\s+/g, ' ')) mismatch++;
       const room = rooms.get(r.nomor.toLowerCase());
       if (e.room_id === room.id) { assigned++; continue; }
       if (room.kapasitas && (occ[room.id] || 0) >= room.kapasitas) { full++; continue; }
@@ -392,7 +394,7 @@ const H = {
       (byRoom[room.id] ||= []).push(e.id); assigned++;
     }
     for (const [rid, ids] of Object.entries(byRoom)) for (let i = 0; i < ids.length; i += 100) must(await db.from('employees').update({ room_id: Number(rid) }).in('id', ids.slice(i, i + 100)));
-    return { assigned, created, notFound, full, skipped, duplicates: rows.length - plan.size };
+    return { assigned, created, notFound, full, mismatch, skipped, duplicates: rows.length - plan.size };
   },
 
   // ---------- survey ----------

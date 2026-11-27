@@ -24,7 +24,7 @@ URUTAN
 
 CARA PAKAI
 - Login sebagai admin, buka menu Kamar.
-- Tambah kamar satu per satu (Tambah kamar), atau Import Excel (kolom NIK, Nomor Kamar, Nama Kamar).
+- Tambah kamar satu per satu (Tambah kamar), atau Import Excel (kolom NIK, Nama Peserta, Nomor Kamar, Nama Kamar).
 - Klik Atur penghuni di tiap kamar untuk memasukkan atau mengeluarkan peserta.
 - Kalau acara menginap, klik Aktifkan. Peserta langsung melihat kartu Kamar di tiket (diperbarui otomatis tiap +-25 detik).
 - Acara tanpa menginap: biarkan Nonaktif, tiket peserta tidak berubah.

@@ -7,7 +7,7 @@ Fitur: halaman pesan tiket dan e-tiket QR di HP peserta, check-in, redeem kupon 
 - `/login` login panitia dan admin.
 - `/staff` panitia: mode Check-in (pintu) dan Redeem (booth), nama booth, riwayat scan.
 - `/admin` ringkasan. Sub-halaman: `/admin/peserta` (cari, filter, tambah/ubah peserta, check-in manual, import dan ekspor Excel), `/admin/panitia`, `/admin/kupon`, `/admin/hadiah`, `/admin/pemenang`, `/admin/kamar` (pembagian kamar untuk acara menginap), `/admin/history` (riwayat semua aktivitas), `/admin/pengaturan` (nama, tanggal, lokasi acara).
-- Kamar: di `/admin/kamar` admin menambah kamar (nomor, nama, kapasitas, keterangan), mengatur penghuni (cari lalu Masukkan, atau Import Excel: NIK, Nomor Kamar, Nama Kamar), dan menyalakan fitur. Selama belum diaktifkan, tiket peserta tidak menampilkan apa-apa soal kamar. Setelah aktif, tiket peserta memuat kartu Kamar kamu (nomor, nama, daftar teman sekamar).
+- Kamar: di `/admin/kamar` admin menambah kamar (nomor, nama, kapasitas, keterangan), mengatur penghuni (cari lalu Masukkan, atau Import Excel: NIK, Nama Peserta, Nomor Kamar, Nama Kamar), dan menyalakan fitur. Selama belum diaktifkan, tiket peserta tidak menampilkan apa-apa soal kamar. Setelah aktif, tiket peserta memuat kartu Kamar kamu (nomor, nama, daftar teman sekamar).
 - `/survey` peserta: survey umpan balik acara (muncul sebagai kartu "Survey acara" di tiket saat survey dibuka admin).
 - `/admin/survey` admin: buka/tutup survey, hasil per pertanyaan, ekspor Excel, dan editor pertanyaan.
 - `/stage` admin: layar undian spin wheel (Spasi untuk memutar).

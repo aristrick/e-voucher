@@ -39,7 +39,7 @@ export default function Kamar() {
   const doImport = async () => {
     const r = await run({ action: 'importRooms', rows });
     if (!r.ok) return;
-    const extra = [r.created && `${r.created} kamar baru dibuat`, r.notFound && `${r.notFound} NIK tidak ditemukan`, r.full && `${r.full} gagal karena kamar penuh`, r.skipped && `${r.skipped} baris dilewati (NIK atau nomor kamar kosong)`, r.duplicates && `${r.duplicates} NIK ganda digabung`].filter(Boolean);
+    const extra = [r.created && `${r.created} kamar baru dibuat`, r.notFound && `${r.notFound} NIK tidak ditemukan`, r.mismatch && `${r.mismatch} nama di Excel berbeda dari data peserta (periksa NIK-nya)`, r.full && `${r.full} gagal karena kamar penuh`, r.skipped && `${r.skipped} baris dilewati (NIK atau nomor kamar kosong)`, r.duplicates && `${r.duplicates} NIK ganda digabung`].filter(Boolean);
     setMsg({ ok: true, t: `${r.assigned} peserta dibagi ke kamar` + (extra.length ? `. ${extra.join(', ')}` : '') });
     closeImp();
   };
@@ -111,14 +111,14 @@ export default function Kamar() {
       </Modal>}
 
       {imp && <Modal title="Import pembagian kamar dari Excel" onClose={closeImp}>
-        <p className="mute">Pilih file <b>.xlsx</b> dengan kolom <b>NIK, Nomor Kamar, Nama Kamar</b> (satu peserta per baris, judul kolom di baris pertama). Kamar yang belum ada dibuat otomatis. Peserta yang sudah punya kamar dipindahkan ke kamar di file. Kapasitas kamar tetap dihormati.</p>
+        <p className="mute">Pilih file <b>.xlsx</b> dengan kolom <b>NIK, Nama Peserta, Nomor Kamar, Nama Kamar</b> (satu peserta per baris, judul kolom di baris pertama). Kamar yang belum ada dibuat otomatis. Peserta yang sudah punya kamar dipindahkan ke kamar di file. Kapasitas kamar tetap dihormati.</p>
         <button className="btn sm w" onClick={template}>Unduh template Excel</button>
         <input type="file" accept=".xlsx" onChange={onFile} aria-label="Pilih file Excel" style={{ marginTop: 12 }} />
         {fname && !ferr && <div className="mute">{fname}</div>}
         {ferr && <div className="err">{ferr}</div>}
         {rows.length > 0 && <div className="tw" style={{ maxHeight: 180, overflow: 'auto' }}><table>
-          <thead><tr><th>NIK</th><th>Nomor Kamar</th><th>Nama Kamar</th></tr></thead>
-          <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}><td>{r.nik}</td><td>{r.nomor}</td><td>{r.nama}</td></tr>)}</tbody></table></div>}
+          <thead><tr><th>NIK</th><th>Nama Peserta</th><th>Nomor Kamar</th><th>Nama Kamar</th></tr></thead>
+          <tbody>{rows.slice(0, 5).map((r, i) => <tr key={i}><td>{r.nik}</td><td>{r.peserta}</td><td>{r.nomor}</td><td>{r.nama}</td></tr>)}</tbody></table></div>}
         <div className="row"><span className="mute">{rows.length} baris siap diimpor</span>
           <button className="btn" disabled={!rows.length} onClick={doImport}>Import {rows.length || ''} baris</button></div>
       </Modal>}

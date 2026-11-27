@@ -183,7 +183,7 @@ export default function Home() {
                     <KeyIcon size={22} />
                     <div>
                       <b>Kunci kamar belum diambil</b>
-                      <div className="mu">Saat datang, tunjukkan QR tiket ke panitia. Siapa pun penghuni kamar yang discan lebih dulu menjadi pembawa kunci.</div>
+                      <div className="mu">Saat datang, check-in dulu, lalu tunjukkan QR tiket ke panitia kunci. Siapa pun penghuni kamar yang discan lebih dulu menjadi pembawa kunci.</div>
                     </div>
                   </div>);
                 return (

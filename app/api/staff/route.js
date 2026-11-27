@@ -64,14 +64,15 @@ async function handle(req, b) {
     }
 
     if (action === 'key') {
-      // serah kunci kamar: penghuni yang PERTAMA discan di kamar itu otomatis menjadi pemegang kunci, tanpa ditandai lebih dulu.
+      // serah kunci kamar: peserta harus sudah check-in. Penghuni yang PERTAMA discan di kamar itu otomatis menjadi pemegang kunci, tanpa ditandai lebih dulu.
       // Setelah itu penghuni lain di kamar yang sama ditolak. Penandaan memakai satu update bersyarat (hanya berhasil selama
       // kamar belum punya pemegang kunci), jadi dua panitia yang memindai dua penghuni sekamar bersamaan tidak bisa menyerahkan kunci dua kali.
-      const pe = await db.from('employees').select('id,nama,nik,cabang,divisi,room_id').or(match).maybeSingle();
+      const pe = await db.from('employees').select('id,nama,nik,cabang,divisi,room_id,checked_in_at').or(match).maybeSingle();
       if (pe.error) return R({ ok: false, aksi: 'key', msg: /room_id/i.test(pe.error.message) ? 'Database belum diperbarui. Jalankan supabase/migration-v11.sql dan migration-v12.sql di Supabase SQL Editor.' : pe.error.message }, 500);
       const e = pe.data;
       if (!e) return R({ ok: false, msg: 'Tiket tidak dikenal' });
       const who = { nama: e.nama, nik: e.nik, cabang: e.cabang || '', divisi: e.divisi || '' };
+      if (!e.checked_in_at) return R({ ok: false, aksi: 'key', ...who, msg: 'Belum check-in di pintu masuk' });
       if (!(await roomEnabled())) return R({ ok: false, aksi: 'key', ...who, msg: 'Fitur pembagian kamar belum diaktifkan admin' });
       if (!e.room_id) return R({ ok: false, aksi: 'key', ...who, msg: 'Peserta ini belum dibagi kamar' });
       const rr = await db.from('rooms').select('id,nomor,nama,key_holder,key_taken_at').eq('id', e.room_id).maybeSingle();

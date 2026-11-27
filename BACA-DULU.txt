@@ -1,4 +1,4 @@
-CARA PASANG (v13: pembawa kunci otomatis dari scan pertama)
+CARA PASANG (v13: pembawa kunci otomatis dari scan pertama, wajib check-in)
 ===========================================================
 Folder di zip ini meniru susunan proyekmu (e-voucher). Cukup salin isinya ke folder proyek
 dan pilih "Timpa / Replace" untuk file yang sudah ada.
@@ -11,7 +11,7 @@ URUTAN
 2. Salin semua file zip ke proyek (timpa). Yang berubah di v13:
    supabase/migration-v13.sql     BARU
    lib/rooms.js                   tidak lagi menunjuk pemegang kunci otomatis
-   app/api/staff/route.js         scan KUNCI pertama di kamar = pembawa kunci; penghuni lain ditolak
+   app/api/staff/route.js         scan KUNCI wajib sudah check-in; scan pertama di kamar = pembawa kunci; penghuni lain ditolak
    app/api/admin/route.js         ganti pembawa kunci manual (langsung tercatat sudah diambil), reset mengosongkan pembawa kunci
    app/page.js                    tiket: "Kunci belum diambil" sebelum ada yang discan
    app/staff/page.js              teks mode KUNCI
@@ -21,6 +21,7 @@ URUTAN
 
 CARA PAKAI KUNCI KAMAR
 - Tidak ada penandaan pemegang kunci saat pembagian kamar.
+- Peserta harus check-in dulu. Yang belum check-in ditolak dengan pesan "Belum check-in di pintu masuk".
 - Halaman scan panitia: pilih mode KUNCI, scan QR peserta yang datang. Penghuni kamar yang pertama discan otomatis jadi pembawa kunci.
 - Penghuni lain di kamar yang sama yang discan sesudahnya ditolak, dengan keterangan siapa pembawa kuncinya.
 - Salah scan atau pembawa kunci berganti: Admin > Kamar > Atur penghuni > "Ganti jadi pembawa kunci" pada penghuni yang benar.

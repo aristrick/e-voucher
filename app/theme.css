@@ -471,3 +471,16 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 
 /* v12.1: warna menu cepat: Layar undian ungu, Halaman scan hijau, Keluar akun merah */
 .btn.p{background:var(--purple)}
+
+
+/* ---------- v13 ---------- */
+
+/* Kamera: pembungkus bawaan html5-qrcode hanya setinggi videonya (16:9), jadi di kotak persegi separuh bawah hitam. Paksa seluruh pembungkus mengisi kotak. */
+#cam{border:0 !important;overflow:hidden}
+#cam > div{width:100% !important;height:100% !important;min-height:0 !important;padding:0 !important;margin:0 !important}
+#cam video{width:100% !important;height:100% !important;object-fit:cover !important}
+#cam canvas{display:none !important}
+
+/* Tombol ikon mata */
+.pw input{padding-right:64px}
+.pw-eye{width:52px;height:36px;right:5px}

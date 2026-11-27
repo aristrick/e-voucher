@@ -1,15 +1,17 @@
 'use client';
 import { useState } from 'react';
 
-// Ikon mata gaya pixel (kotak-kotak, sesuai tema). [x, y, lebar] per baris pada kisi 13 x 7.
-const EYE = [[3, 0, 7], [1, 1, 2], [10, 1, 2], [0, 2, 1], [12, 2, 1], [5, 2, 3], [0, 3, 1], [12, 3, 1], [4, 3, 5], [0, 4, 1], [12, 4, 1], [5, 4, 3], [1, 5, 2], [10, 5, 2], [3, 6, 7]];
-const SLASH = [[1, 6, 2], [3, 5, 2], [5, 4, 1], [6, 3, 2], [8, 2, 1], [9, 1, 2], [11, 0, 2]];
+// Ikon mata gaya pixel pada kisi 11 x 7. Tiap item: [x, y, lebar]. Satu sel = 3px supaya tegas di layar HP maupun laptop.
+const EYE = [[3, 0, 5], [1, 1, 2], [8, 1, 2], [0, 2, 1], [4, 2, 3], [10, 2, 1], [0, 3, 1], [3, 3, 5], [10, 3, 1], [0, 4, 1], [4, 4, 3], [10, 4, 1], [1, 5, 2], [8, 5, 2], [3, 6, 5]];
+// Coretan diagonal untuk keadaan "password sedang terlihat" (tekan untuk menyembunyikan)
+const SLASH = [[1, 6, 2], [2, 5, 2], [3, 4, 2], [4, 3, 3], [6, 2, 2], [7, 1, 2], [8, 0, 2]];
 
 function Eye({ off }) {
   return (
-    <svg viewBox="0 0 13 7" width="26" height="14" shapeRendering="crispEdges" aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 11 7" width="33" height="21" shapeRendering="crispEdges" aria-hidden="true" focusable="false">
       {EYE.map(([x, y, w], i) => <rect key={i} x={x} y={y} width={w} height="1" fill="#000" />)}
-      {off && SLASH.map(([x, y, w], i) => <rect key={'s' + i} x={x} y={y} width={w} height="1" fill="#E5252A" />)}
+      {off && SLASH.map(([x, y, w], i) => <rect key={'h' + i} x={x} y={y} width={w} height="1" fill="#fff" stroke="#fff" strokeWidth="1" />)}
+      {off && SLASH.map(([x, y, w], i) => <rect key={'s' + i} x={x} y={y} width={w} height="1" fill="#000" />)}
     </svg>
   );
 }

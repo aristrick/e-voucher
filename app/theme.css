@@ -64,7 +64,14 @@ tr:last-child td{border-bottom:0}
 .step b{display:block;font-size:16px}
 .step.on{background:var(--yellow)}.step.done{background:var(--lime)}
 .land-grid{display:grid;gap:16px;grid-template-columns:1fr}
-@media(min-width:860px){.land-grid{grid-template-columns:1fr 1fr;align-items:start}}
+/* desktop dan tablet (720px ke atas): dua kolom. Logo kecil ada di samping label E-tiket di semua ukuran layar. */
+.hero-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.logo-sm{display:block;height:44px;width:auto;flex:none}
+.land-right{display:flex;flex-direction:column;align-items:flex-start}
+.land-right>.card{align-self:stretch}
+@media(min-width:720px){
+  .land-grid{grid-template-columns:1fr 1fr;align-items:start}
+}
 .hero{background:var(--purple);border:3px solid #000;border-radius:0;filter:drop-shadow(5px 5px 0 #000);padding:20px 16px;margin-bottom:16px}
 .hero h1{font-size:clamp(30px,8vw,48px);margin:10px 0 12px}
 .meta{display:grid;gap:8px}

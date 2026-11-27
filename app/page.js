@@ -231,7 +231,10 @@ export default function Home() {
       <div className="land-grid">
         <div>
           <div className="hero">
-            <span className="chip yellow" style={{ background: 'var(--yellow)' }}>E-tiket khusus karyawan</span>
+            <div className="hero-top">
+              <img className="logo-sm" src="/gotik-logo.png" alt="Gotik E-Ticket Platform" width="105" height="44" />
+              <span className="chip yellow" style={{ background: 'var(--yellow)' }}>E-tiket khusus karyawan</span>
+            </div>
             <h1>{e.event_name || 'Gathering Karyawan'}</h1>
             {e.event_desc && <p>{e.event_desc}</p>}
             {(e.event_date || e.event_venue) && <div className="meta">
@@ -261,7 +264,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div>
+        <div className="land-right">
           <div className="card" id="klaim">
             <div className="steps">
               <div className={'step ' + (step === 1 ? 'on' : 'done')}><b>1</b>Cek NIK</div>

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { post, fmtTime, fmtFull, unit } from '@/lib/client';
 import * as sfx from '@/lib/sound';
 import { useUI } from '@/app/admin/ui';
+import KeyIcon from '@/app/keyicon';
 
 export default function Staff() {
   const { ask } = useUI();
@@ -31,7 +32,7 @@ export default function Staff() {
   const [pending, setPending] = useState(false);
   const inflight = useRef(0), last = useRef({ c: '', t: 0 });
   const release = () => { clearTimeout(timer.current); heldRef.current = false; last.current.t = Date.now(); setRes(null); };
-  // popup hadiah (held) TIDAK menutup sendiri: panitia harus membaca hadiahnya lalu mengetuk Selesai
+  // popup hadiah dan kunci (held) TIDAK menutup sendiri: panitia harus membaca hadiahnya lalu mengetuk Selesai
   const show = (d, held, mode) => {
     heldRef.current = held;
     setRes({ ...d, held });
@@ -48,7 +49,7 @@ export default function Staff() {
     const now = Date.now();
     const mode = ref.current.mode;
     // mode Hadiah: selama popup terbuka atau ada scan yang belum selesai, scan lain diabaikan supaya hadiah peserta sebelumnya tidak tertimpa popup baru
-    if (mode === 'prize' && (heldRef.current || inflight.current > 0)) return;
+    if ((mode === 'prize' || mode === 'key') && (heldRef.current || inflight.current > 0)) return;
     if (!manual && last.current.c === c && now - last.current.t < 3000) return;
     last.current = { c, t: now };
     sfx.scan(); navigator.vibrate?.(20);   // tanda instan bahwa QR terbaca
@@ -57,7 +58,7 @@ export default function Staff() {
     inflight.current--; if (!inflight.current) setPending(false);
     if (r.status === 401) { location.href = '/login'; return; }
     last.current.t = Date.now();
-    show(r.status === 0 ? { ok: false, msg: 'Koneksi bermasalah, scan lagi' } : { ...r, ok: !!r.ok, msg: r.msg || r.error || 'Server bermasalah, scan lagi' }, mode === 'prize', mode);
+    show(r.status === 0 ? { ok: false, msg: 'Koneksi bermasalah, scan lagi' } : { ...r, ok: !!r.ok, msg: r.msg || r.error || 'Server bermasalah, scan lagi' }, mode === 'prize' || mode === 'key', mode);
   };
 
   useEffect(() => {
@@ -118,16 +119,18 @@ export default function Staff() {
           <b>{mode === 'redeem' ? '✓ ' : ''}REDEEM</b><span>Tukar kupon di booth</span></button>
         <button type="button" className={'mode hd' + (mode === 'prize' ? ' on' : '')} aria-pressed={mode === 'prize'} onClick={() => setMode('prize')}>
           <b>{mode === 'prize' ? '✓ ' : ''}HADIAH</b><span>Serahkan hadiah undian ke pemenang</span></button>
+        <button type="button" className={'mode ky' + (mode === 'key' ? ' on' : '')} aria-pressed={mode === 'key'} onClick={() => setMode('key')}>
+          <b>{mode === 'key' ? '✓ ' : ''}KUNCI</b><span>Serahkan kunci kamar ke pemegang kunci</span></button>
       </div>
       {mode === 'redeem' && (coupons.length
         ? <select aria-label="Kupon yang ditukar" value={coupon} onChange={(e) => setCoupon(e.target.value)}>{coupons.map((c) => <option key={c.id} value={c.id}>{c.nama}</option>)}</select>
         : <div className="card yellow">Belum ada kupon. Admin perlu menambah kupon dulu.</div>)}
       {mode !== 'checkin' && <input aria-label="Nama booth" placeholder="Nama booth (opsional)" value={booth} onChange={(e) => saveBooth(e.target.value)} />}
       {!camErr && <>
-        <div className={'camwrap ' + (mode === 'checkin' ? 'ci' : mode === 'redeem' ? 'rd' : 'hd')}>
+        <div className={'camwrap ' + (mode === 'checkin' ? 'ci' : mode === 'redeem' ? 'rd' : mode === 'key' ? 'ky' : 'hd')}>
           <div id="cam" />
           {camReady && <div className="scan-frame" aria-hidden="true"><i /><i /><i /><i /></div>}
-          <span className="cam-mode">{mode === 'checkin' ? 'MODE CHECK-IN' : mode === 'prize' ? 'MODE HADIAH' : 'MODE REDEEM' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
+          <span className="cam-mode">{mode === 'checkin' ? 'MODE CHECK-IN' : mode === 'prize' ? 'MODE HADIAH' : mode === 'key' ? 'MODE KUNCI' : 'MODE REDEEM' + (coupons.find((c) => String(c.id) === String(coupon))?.nama ? ' · ' + coupons.find((c) => String(c.id) === String(coupon)).nama : '')}</span>
           {!camReady && <div className="cam-load" role="status">Menyalakan kamera...</div>}
           {torchOk && <button type="button" className="btn sm w torch" onClick={toggleTorch} aria-pressed={torch}>{torch ? 'Senter mati' : 'Senter'}</button>}
           {pending && <div className="scanning" role="status">Memproses...</div>}
@@ -143,7 +146,7 @@ export default function Staff() {
       {hist.length > 0 && <div className="card"><div className="row"><h2>Riwayat scan</h2><span className="mute">{okCount} berhasil</span></div>
         {hist.map((h, i) => (
           <div className="row" key={i} style={{ margin: '8px 0' }}>
-            <span><b>{h.nama || 'Tidak dikenal'}</b><div className="mute">{h.aksi === 'redeem' ? 'Redeem' + (h.kupon ? ' ' + h.kupon : '') : h.aksi === 'prize' ? 'Hadiah' + (h.hadiah?.length ? ' ' + h.hadiah.join(', ') : '') : 'Check-in'} · {fmtTime(h.at)}{h.ok ? '' : ' · ' + h.msg}</div></span>
+            <span><b>{h.nama || 'Tidak dikenal'}</b><div className="mute">{h.aksi === 'redeem' ? 'Redeem' + (h.kupon ? ' ' + h.kupon : '') : h.aksi === 'key' ? 'Kunci kamar' + (h.kamar ? ' ' + h.kamar : '') : h.aksi === 'prize' ? 'Hadiah' + (h.hadiah?.length ? ' ' + h.hadiah.join(', ') : '') : 'Check-in'} · {fmtTime(h.at)}{h.ok ? '' : ' · ' + h.msg}</div></span>
             <span className={'chip' + (h.ok ? '' : ' no')}>{h.ok ? 'Berhasil' : 'Gagal'}</span>
           </div>))}
       </div>}
@@ -156,6 +159,7 @@ export default function Staff() {
             {res.nama && <div className="pop-name">{res.nama}</div>}
             {res.nik && <div>NIK {res.nik}{unit(res) ? ' · ' + unit(res) : ''}</div>}
             {res.kupon && <div className="pop-item">{res.kupon}</div>}
+            {res.kamar && <div className="pop-item pop-key"><KeyIcon size={20} /> Kamar {res.kamar}</div>}
             {res.hadiah?.length > 0 && <div className="pop-items"><div className="pop-sub">{res.ok ? 'Hadiah yang diserahkan' : 'Hadiah peserta'}</div>{res.hadiah.map((h, i) => <div className="pop-item" key={i}>{h}</div>)}</div>}
             <div className="pop-msg">{res.msg}</div>
             {res.at && <div className="pop-time">{res.ok ? 'Tercatat' : 'Sebelumnya'}: {fmtFull(res.at)}</div>}

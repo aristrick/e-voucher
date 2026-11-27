@@ -1,30 +1,36 @@
-CARA PASANG (v11: pembagian kamar)
-==================================
+CARA PASANG (v12: kunci kamar + perbaikan sidebar)
+===================================================
 Folder di zip ini meniru susunan proyekmu (e-voucher). Cukup salin isinya ke folder proyek
 dan pilih "Timpa / Replace" untuk file yang sudah ada.
+(Zip ini berisi semua file fitur kamar, jadi aman ditimpa walau v11 sudah terpasang.)
 
 URUTAN
-1. Supabase: buka SQL Editor, jalankan  supabase/migration-v11.sql  (sekali saja).
+1. Supabase: buka SQL Editor, jalankan  supabase/migration-v11.sql  (kalau belum pernah),
+   lalu jalankan  supabase/migration-v12.sql  (sekali saja).
+   v12 juga otomatis menjadikan penghuni pertama (urut nama) di setiap kamar yang sudah terisi sebagai pemegang kunci.
 2. Salin semua file di bawah ke proyek (timpa):
 
-   supabase/migration-v11.sql      BARU: tabel kamar dan kolom kamar peserta
-   lib/rooms.js                    BARU: status fitur kamar, validasi kamar, data kamar untuk tiket
-   app/admin/kamar/page.js         BARU: halaman admin Kamar (daftar kamar, atur penghuni, import/ekspor Excel, tombol aktifkan)
-   app/api/admin/route.js          aksi kamar: rooms, setRoomEnabled, addRoom, updateRoom, deleteRoom, roomCandidates, assignRoom, unassignRoom, importRooms (+ catatan History)
-   app/api/ticket/route.js         tiket membawa data kamar dan teman sekamar (hanya jika fitur diaktifkan)
-   app/page.js                     kartu "Kamar kamu" di tiket peserta + notifikasi saat pembagian kamar masuk
-   app/admin/shell.js              menu Kamar di sidebar admin (sebelum Survey)
+   supabase/migration-v12.sql      BARU: kolom pemegang kunci dan status kunci di tabel kamar
+   supabase/migration-v11.sql      tabel kamar (sama seperti v11)
+   app/keyicon.js                  BARU: ikon kunci pixel
+   lib/rooms.js                    data kamar + kunci untuk tiket, pemegang kunci otomatis
+   app/api/staff/route.js          aksi scan baru: key (serah kunci kamar)
+   app/staff/page.js               mode KUNCI di halaman scan panitia
+   app/api/admin/route.js          aksi setKeyHolder dan resetKey, pemegang kunci ikut diperbarui saat penghuni masuk/keluar/pindah
+   app/api/ticket/route.js         tiket membawa data kamar (sama seperti v11)
+   app/page.js                     kartu kunci di tiket: pemegang kunci, status diambil, ikon kunci di daftar teman
+   app/admin/kamar/page.js         kolom Kunci, tombol Jadikan pemegang kunci dan Reset kunci
+   app/admin/shell.js              latar putih sidebar sampai paling bawah
    app/admin/history/page.js       filter kategori Kamar
-   app/theme.css                   gaya kartu kamar, daftar penghuni, label Kamar di History
-   lib/excel.js                    template, baca, dan ekspor Excel pembagian kamar
-   README.md                       catatan fitur kamar
+   app/theme.css                   gaya kunci, mode KUNCI, perbaikan sidebar
+   lib/excel.js                    ekspor Excel kamar memuat kolom pemegang kunci
+   README.md                       catatan fitur
 
 3. Hentikan "npm run dev", hapus folder .next, lalu jalankan "npm run dev" lagi.
 4. Untuk Vercel: commit dan push, lalu tunggu deploy selesai.
 
-CARA PAKAI
-- Login sebagai admin, buka menu Kamar.
-- Tambah kamar satu per satu (Tambah kamar), atau Import Excel (kolom NIK, Nama Peserta, Nomor Kamar, Nama Kamar).
-- Klik Atur penghuni di tiap kamar untuk memasukkan atau mengeluarkan peserta.
-- Kalau acara menginap, klik Aktifkan. Peserta langsung melihat kartu Kamar di tiket (diperbarui otomatis tiap +-25 detik).
-- Acara tanpa menginap: biarkan Nonaktif, tiket peserta tidak berubah.
+CARA PAKAI KUNCI KAMAR
+- Admin > Kamar > Atur penghuni: pemegang kunci ditandai ikon kunci. Klik "Jadikan pemegang kunci" untuk menggantinya.
+- Halaman scan panitia: pilih mode KUNCI, lalu scan QR pemegang kunci. Hasilnya tampil nomor kamar.
+- Setelah kunci diambil, penghuni lain di kamar itu tidak bisa mengambilnya (scan ditolak dengan keterangan siapa yang sudah mengambil).
+- Kunci dikembalikan atau salah serah: Admin > Kamar > Atur penghuni > Reset kunci.

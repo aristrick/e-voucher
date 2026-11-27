@@ -6,6 +6,7 @@ import { useUI, Splash } from '@/app/admin/ui';
 import Confetti from './confetti';
 import PxIcons from './pxicons';
 import PwField from './pwfield';
+import KeyIcon from './keyicon';
 
 const cached = () => { try { return JSON.parse(localStorage.getItem('tiket') || 'null'); } catch { return null; } };
 
@@ -44,6 +45,7 @@ export default function Home() {
       if (baru.length) setFresh((f) => [...f, ...baru.map((c) => c.id)]);
       if (baru.length) say('Kupon ' + baru.map((c) => c.nama).join(', ') + ' berhasil ditukar');
       else if (prev.prizes && (r.prizes || []).some((p) => p.claimed_at && !prev.prizes.find((x) => x.id === p.id)?.claimed_at)) say('Hadiah kamu sudah diserahkan. Selamat menikmati!');
+      else if (r.kamar?.kunci?.diambil_at && !prev.kamar?.kunci?.diambil_at) say(r.kamar.kunci.saya ? 'Kunci kamar sudah diserahkan kepadamu' : 'Kunci kamar sudah diambil oleh ' + r.kamar.kunci.pemegang);
       else if (r.kamar?.dapat && !prev.kamar?.dapat) say('Pembagian kamar sudah tersedia: kamar ' + r.kamar.nomor + (r.kamar.nama ? ' (' + r.kamar.nama + ')' : ''));
       else if (r.hadir && !prev.hadir) say('Check-in berhasil. Selamat datang!');
       else if (r.win && !prev.win) say('Selamat, kamu memenangkan ' + r.win + '!');
@@ -174,9 +176,22 @@ export default function Home() {
                   <div className="room-note">{t.kamar.jumlah} penghuni{t.kamar.kapasitas ? ' dari ' + t.kamar.kapasitas + ' tempat' : ''}</div>
                 </div>
               </div>
+              {t.kamar.kunci && (() => {
+                const k = t.kamar.kunci;
+                return (
+                  <div className={'key-box' + (k.saya ? ' me' : '')} role="status">
+                    <KeyIcon size={22} />
+                    <div>
+                      <b>{k.saya ? 'Kamu pemegang kunci kamar ini' : 'Pemegang kunci: ' + k.pemegang}</b>
+                      <div className="mu">{k.diambil_at
+                        ? (k.saya ? 'Kunci sudah kamu ambil' : 'Kunci sudah diambil atas nama ' + k.pemegang) + ' · ' + fmtFull(k.diambil_at)
+                        : k.saya ? 'Kunci belum diambil. Tunjukkan QR tiket ke panitia untuk mengambil kunci kamar.' : 'Kunci belum diambil. Hanya ' + k.pemegang + ' yang bisa mengambilnya.'}</div>
+                    </div>
+                  </div>);
+              })()}
               <h3>Teman sekamar{t.kamar.teman.length ? ' (' + t.kamar.teman.length + ')' : ''}</h3>
               {t.kamar.teman.length === 0 ? <p className="mute" style={{ margin: 0 }}>Belum ada teman sekamar yang terdaftar.</p> : (
-                <ul className="mates">{t.kamar.teman.map((m, i) => <li key={i}><b>{m.nama}</b>{m.unit && <span className="mu">{m.unit}</span>}</li>)}</ul>)}
+                <ul className="mates">{t.kamar.teman.map((m, i) => <li key={i} className={m.kunci ? 'key' : ''}><b>{m.nama}{m.kunci && <> <KeyIcon size={14} label="Pemegang kunci" /></>}</b>{m.unit && <span className="mu">{m.unit}</span>}</li>)}</ul>)}
             </>}
           </div>
         )}

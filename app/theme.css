@@ -414,7 +414,6 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 
 
 /* ---------- v10: mode Hadiah di panitia + banner hadiah di tiket ---------- */
-.modes .mode.hd{grid-column:1/-1}
 .mode.hd.on{background:var(--pink)}
 .camwrap.hd{box-shadow:0 0 0 6px var(--pink)}
 .camwrap.hd .cam-mode{background:var(--pink);color:#000}
@@ -501,3 +500,19 @@ input:focus,select:focus,textarea:focus{background-color:#FFFBD6}
 .mates li{padding:7px 0;border-bottom:2px dashed #000;display:flex;flex-direction:column}
 .mates li:last-child{border-bottom:0}
 .mates .mu{color:var(--mute);font-size:13px}
+
+/* ---------- Kunci kamar ---------- */
+.side-bg{display:none}
+@media(min-width:821px){.side-bg{display:block;position:fixed;left:0;top:0;bottom:0;width:232px;background:#fff;border-right:3px solid #000;z-index:-1}}
+.keyi{display:inline-block;vertical-align:-2px;flex:none}
+.kp.key{background:var(--yellow)}
+.kp.key .keyi{align-self:center}
+.mate-row.key{background:#fff3b0;margin:0 -10px;padding-left:10px;padding-right:10px}
+.key-box{display:flex;gap:12px;align-items:center;border:3px solid #000;background:var(--blue);padding:10px 12px;margin:14px 0 0}
+.key-box.me{background:var(--yellow)}
+.key-box .mu{font-size:13px;margin-top:2px}
+.mates li.key{background:#fff3b0;margin:0 -8px;padding:7px 8px}
+.mode.ky.on{background:var(--blue)}
+.camwrap.ky{box-shadow:0 0 0 6px var(--blue)}
+.camwrap.ky .cam-mode{background:var(--blue);color:#000}
+.pop-key{display:inline-flex;align-items:center;gap:8px}

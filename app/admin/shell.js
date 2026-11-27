@@ -10,6 +10,7 @@ export default function Shell({ children }) {
   return (
     <UIProvider>
     <div className="shell">
+      <div className="side-bg" aria-hidden="true" />
       <nav className="side" aria-label="Menu admin">
         <div className="brand">Admin</div>
         {NAV.map(([h, l]) => <a key={h} href={h} className={'nav' + (path === h ? ' on' : '')} aria-current={path === h ? 'page' : undefined}>{l}</a>)}
